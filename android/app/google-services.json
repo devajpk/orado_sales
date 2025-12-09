@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "364977169238",
+    "project_id": "orado-1eb0c",
+    "storage_bucket": "orado-1eb0c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:364977169238:android:76de808764c3af6820acf7",
+        "android_client_info": {
+          "package_name": "com.example.oradosales"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBpipNuaOOA84P5498UL8BlpKxzbkjhFGw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:364977169238:android:57ae7c55d2c44c1d20acf7",
+        "android_client_info": {
+          "package_name": "com.orado"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBpipNuaOOA84P5498UL8BlpKxzbkjhFGw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
