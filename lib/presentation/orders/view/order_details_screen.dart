@@ -22,6 +22,13 @@ class OrderDetailsBottomSheet extends StatefulWidget {
       _OrderDetailsBottomSheetState();
 }
 
+final Map<DeliveryStage, String> _statusAPIMap = {
+  DeliveryStage.goingToPickup: "start_journey_to_restaurant",
+  DeliveryStage.atPickup: "reached_restaurant",
+  DeliveryStage.goingToCustomer: "picked_up",
+  DeliveryStage.completed: "delivered",
+};
+
 // Delivery stage flow
 enum DeliveryStage {
   notStarted,        // Slide to start
@@ -592,32 +599,61 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
     );
   }
 
-  void _onSlideCompleted() {
-    setState(() {
-      _slideProgress = 0;
-      switch (_stage) {
-        case DeliveryStage.notStarted:
-          _stage = DeliveryStage.goingToPickup;
-          // Trigger existing callback on "start"
-          widget.onStartPressed();
-          _scrollToSection(_pickupSectionKey);
-          break;
-        case DeliveryStage.goingToPickup:
-          _stage = DeliveryStage.atPickup;
-          _scrollToSection(_arrivalSectionKey);
-          break;
-        case DeliveryStage.atPickup:
-          _stage = DeliveryStage.goingToCustomer;
-          _scrollToSection(_deliverySectionKey);
-          break;
-        case DeliveryStage.goingToCustomer:
-          _stage = DeliveryStage.completed;
-          break;
-        case DeliveryStage.completed:
-          break;
-      }
-    });
+  void _onSlideCompleted() async {
+  DeliveryStage newStage;
+
+  switch (_stage) {
+    case DeliveryStage.notStarted:
+      newStage = DeliveryStage.goingToPickup;
+      widget.onStartPressed();
+      _scrollToSection(_pickupSectionKey);
+      break;
+
+    case DeliveryStage.goingToPickup:
+      newStage = DeliveryStage.atPickup;
+      _scrollToSection(_arrivalSectionKey);
+      break;
+
+    case DeliveryStage.atPickup:
+      newStage = DeliveryStage.goingToCustomer;
+      _scrollToSection(_deliverySectionKey);
+      break;
+
+    case DeliveryStage.goingToCustomer:
+      newStage = DeliveryStage.completed;
+      break;
+
+    case DeliveryStage.completed:
+      return;
   }
+
+  setState(() {
+    _stage = newStage;
+    _slideProgress = 0;
+  });
+
+  // --- Call API status update only for mapped stages
+  if (_statusAPIMap.containsKey(newStage)) {
+    final statusString = _statusAPIMap[newStage]!;
+    final controller = context.read<OrderDetailController>();
+
+    final success = await controller.updateOrderStatus(statusString);
+
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Status updated: $statusString")),
+      );
+      controller.loadOrderDetails(widget.orderId); // refresh UI
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed: ${controller.errorMessage ?? 'Unknown error'}")),
+      );
+    }
+  }
+}
+
 
   void _scrollToSection(GlobalKey key) {
     final ctx = key.currentContext;
