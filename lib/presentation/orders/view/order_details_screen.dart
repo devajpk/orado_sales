@@ -1,11 +1,39 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:oradosales/presentation/orders/provider/order_details_provider.dart';
+import 'package:oradosales/presentation/orders/provider/order_response_controller.dart';
 import 'package:oradosales/presentation/orders/view/task_details.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
+
+// ---------------- STATUS MAP + ENUM ---------------- //
+
+final Map<DeliveryStage, String> _statusAPIMap = {
+  DeliveryStage.awaitingStart: "awaiting_start",
+  DeliveryStage.goingToPickup: "start_journey_to_restaurant",
+  DeliveryStage.atPickup: "reached_restaurant",
+  DeliveryStage.goingToCustomer: "picked_up",
+  DeliveryStage.outForDelivery: "out_for_delivery",
+  DeliveryStage.reachedCustomer: "reached_customer",
+  DeliveryStage.completed: "delivered",
+};
+
+// Delivery stage flow
+enum DeliveryStage {
+  awaitingStart,
+  notStarted,
+  goingToPickup, // start_journey_to_restaurant
+  atPickup, // reached_restaurant
+  goingToCustomer, // picked_up
+  outForDelivery, // out_for_delivery
+  reachedCustomer, // reached_customer
+  completed, // delivered
+}
+
+// ---------------- WIDGET ---------------- //
 
 class OrderDetailsBottomSheet extends StatefulWidget {
   final String orderId;
@@ -21,30 +49,6 @@ class OrderDetailsBottomSheet extends StatefulWidget {
   State<OrderDetailsBottomSheet> createState() =>
       _OrderDetailsBottomSheetState();
 }
-final Map<DeliveryStage, String> _statusAPIMap = {
-  DeliveryStage.awaitingStart: "awaiting_start",
-  DeliveryStage.goingToPickup: "start_journey_to_restaurant",
-  DeliveryStage.atPickup: "reached_restaurant",
-  DeliveryStage.goingToCustomer: "picked_up",
-  DeliveryStage.outForDelivery: "out_for_delivery",
-  DeliveryStage.reachedCustomer: "reached_customer",
-  DeliveryStage.completed: "delivered",
-};
-
-
-
-// Delivery stage flow
-enum DeliveryStage {
-  awaitingStart,
-  notStarted,
-  goingToPickup,     // start_journey_to_restaurant
-  atPickup,          // reached_restaurant
-  goingToCustomer,   // picked_up
-  outForDelivery,    // out_for_delivery
-  reachedCustomer,   // reached_customer
-  completed,         // delivered
-}
-
 
 class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
   GoogleMapController? _mapController;
@@ -252,12 +256,12 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
   Widget build(BuildContext context) {
     return Consumer<OrderDetailController>(
       builder: (context, controller, _) {
-        if (controller.isLoading) {
-          return _loadingSheet();
-        }
+        // if (controller.isLoading) {
+        //   return _loadingSheet();
+        // }
 
         if (controller.order == null) {
-          return _errorSheet();
+          return Center(child: CircularProgressIndicator());
         }
 
         final order = controller.order!;
@@ -437,19 +441,21 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
                       children: [
                         const Icon(Icons.receipt, color: Colors.white),
                         const SizedBox(width: 12),
-                        Text("ORDER ID #${order.id.substring(order.id.length - 8)}"),
+                        Text(
+                          "ORDER ID #${order.id.substring(order.id.length - 8)}",
+                        ),
                       ],
                     ),
 
                     const SizedBox(height: 25),
 
                     _expandTile("TASK DETAILS", () {
-                 Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (_) => TaskDetailsPage(order: order!),
-  ),
-);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => TaskDetailsPage(order: order),
+                        ),
+                      );
                     }),
 
                     const SizedBox(height: 15),
@@ -477,18 +483,103 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
             ),
           ),
 
-          // Pinned slide-to-action button at bottom
+          // Pinned action area at bottom (Accept/Reject + Slide)
           SafeArea(
             top: false,
             child: Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: _buildSlideButton(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildAcceptRejectButtons(order),
+                  if (order.showAcceptReject != true) _buildSlideButton(),
+                ],
+              ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  // ---------------- Accept / Reject ---------------- //
+
+  Widget _buildAcceptRejectButtons(dynamic order) {
+    if (order.showAcceptReject != true) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () => _respondToOrder("accept"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  "Accept Order",
+                  style: TextStyle(fontSize: 16, color: Colors.white),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () => _respondToOrder("reject"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  "Reject",
+                  style: TextStyle(fontSize: 16, color: Colors.white),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Future<void> _respondToOrder(String action) async {
+    final agentController = context.read<AgentOrderResponseController>();
+    await agentController.respond(widget.orderId, action);
+
+    if (!mounted) return;
+
+    if (agentController.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed: ${agentController.error}")),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Order $action')),
+      );
+
+      // refresh order details so showAcceptReject becomes false
+      await context
+          .read<OrderDetailController>()
+          .loadOrderDetails(widget.orderId);
+
+      setState(() {});
+
+      if (action == "reject") {
+        Navigator.pop(context); // close bottom sheet on reject
+      }
+    }
   }
 
   // ---------------- Slide Button ---------------- //
@@ -607,114 +698,113 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
     );
   }
 
-void _onSlideCompleted() async {
-  
-  DeliveryStage newStage;
+  void _onSlideCompleted() async {
+    DeliveryStage newStage;
 
-  switch (_stage) {
-    case DeliveryStage.awaitingStart:
-    case DeliveryStage.notStarted:
-      newStage = DeliveryStage.goingToPickup;
-      break;
+    switch (_stage) {
+      case DeliveryStage.awaitingStart:
+      case DeliveryStage.notStarted:
+        newStage = DeliveryStage.goingToPickup;
+        break;
 
-    case DeliveryStage.goingToPickup:
-      newStage = DeliveryStage.atPickup;
-      break;
+      case DeliveryStage.goingToPickup:
+        newStage = DeliveryStage.atPickup;
+        break;
 
-    case DeliveryStage.atPickup:
-      newStage = DeliveryStage.goingToCustomer;
-      break;
+      case DeliveryStage.atPickup:
+        newStage = DeliveryStage.goingToCustomer;
+        break;
 
-    case DeliveryStage.goingToCustomer:
-      newStage = DeliveryStage.outForDelivery;
-      break;
+      case DeliveryStage.goingToCustomer:
+        newStage = DeliveryStage.outForDelivery;
+        break;
 
-    case DeliveryStage.outForDelivery:
-      newStage = DeliveryStage.reachedCustomer;
-      break;
+      case DeliveryStage.outForDelivery:
+        newStage = DeliveryStage.reachedCustomer;
+        break;
 
-    case DeliveryStage.reachedCustomer:
-      newStage = DeliveryStage.completed;
-      break;
+      case DeliveryStage.reachedCustomer:
+        newStage = DeliveryStage.completed;
+        break;
 
-    case DeliveryStage.completed:
-      return; // No more transitions
-  }
-
-  setState(() {
-    _stage = newStage;
-    _slideProgress = 0;
-  });
-
-  // Call API
-  if (_statusAPIMap.containsKey(newStage)) {
-    final status = _statusAPIMap[newStage]!;
-    final controller = context.read<OrderDetailController>();
-    final success = await controller.updateOrderStatus(status);
-
-    if (!mounted) return;
-
-    if (!success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed: ${controller.errorMessage}")),
-      );
+      case DeliveryStage.completed:
+        return; // No more transitions
     }
 
-    controller.loadOrderDetails(widget.orderId);
+    setState(() {
+      _stage = newStage;
+      _slideProgress = 0;
+    });
+
+    // Call API
+    if (_statusAPIMap.containsKey(newStage)) {
+      final status = _statusAPIMap[newStage]!;
+      final controller = context.read<OrderDetailController>();
+      final success = await controller.updateOrderStatus(status);
+
+      if (!mounted) return;
+
+      if (!success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed: ${controller.errorMessage}")),
+        );
+      }
+
+      controller.loadOrderDetails(widget.orderId);
+    }
   }
-}
-String _getStageLabel() {
-  switch (_stage) {
-    case DeliveryStage.awaitingStart:
-    case DeliveryStage.notStarted:
-      return "Slide to start";
 
-    case DeliveryStage.goingToPickup:
-      return "Slide when reached restaurant";
+  String _getStageLabel() {
+    switch (_stage) {
+      case DeliveryStage.awaitingStart:
+      case DeliveryStage.notStarted:
+        return "Slide to start";
 
-    case DeliveryStage.atPickup:
-      return "Slide when picked up";
+      case DeliveryStage.goingToPickup:
+        return "Slide when reached restaurant";
 
-    case DeliveryStage.goingToCustomer:
-      return "Slide to start delivery";
+      case DeliveryStage.atPickup:
+        return "Slide when picked up";
 
-    case DeliveryStage.outForDelivery:
-      return "Slide when reached customer";
+      case DeliveryStage.goingToCustomer:
+        return "Slide to start delivery";
 
-    case DeliveryStage.reachedCustomer:
-      return "Slide to complete";
+      case DeliveryStage.outForDelivery:
+        return "Slide when reached customer";
 
-    case DeliveryStage.completed:
-      return "Completed";
+      case DeliveryStage.reachedCustomer:
+        return "Slide to complete";
+
+      case DeliveryStage.completed:
+        return "Completed";
+    }
   }
-}
-Color _getStageColor() {
-  switch (_stage) {
-    case DeliveryStage.awaitingStart:
-    case DeliveryStage.notStarted:
-      return Colors.orange;   // Start journey
 
-    case DeliveryStage.goingToPickup:
-      return Colors.blue;     // Going to restaurant
+  Color _getStageColor() {
+    switch (_stage) {
+      case DeliveryStage.awaitingStart:
+      case DeliveryStage.notStarted:
+        return Colors.orange; // Start journey
 
-    case DeliveryStage.atPickup:
-      return Colors.purple;   // Reached restaurant
+      case DeliveryStage.goingToPickup:
+        return Colors.blue; // Going to restaurant
 
-    case DeliveryStage.goingToCustomer:
-      return Colors.teal;     // Picked up → heading to customer
+      case DeliveryStage.atPickup:
+        return Colors.purple; // Reached restaurant
 
-    case DeliveryStage.outForDelivery:
-      return Colors.indigo;   // Out for delivery
+      case DeliveryStage.goingToCustomer:
+        return Colors.teal; // Picked up → heading to customer
 
-    case DeliveryStage.reachedCustomer:
-      return Colors.deepOrange; // Reached customer
+      case DeliveryStage.outForDelivery:
+        return Colors.indigo; // Out for delivery
 
-    case DeliveryStage.completed:
-      return Colors.green;    // Delivered
+      case DeliveryStage.reachedCustomer:
+        return Colors.deepOrange; // Reached customer
+
+      case DeliveryStage.completed:
+        return Colors.green; // Delivered
+    }
   }
-}
-
-
 
   // ---------------- Helpers ---------------- //
 
@@ -840,8 +930,8 @@ Color _getStageColor() {
   Future<void> _openNavigation(double? lat, double? lng) async {
     if (lat == null || lng == null) return;
 
-    final Uri url =
-        Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$lng");
+    final Uri url = Uri.parse(
+        "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng");
 
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);

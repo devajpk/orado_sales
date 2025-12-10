@@ -18,7 +18,7 @@ class AgentOrderResponseController extends ChangeNotifier {
     try {
       response = await _service.respondToOrder(
         orderId: orderId,
-        action: action,
+        action: action
       );
     } catch (e) {
       error = e.toString();
