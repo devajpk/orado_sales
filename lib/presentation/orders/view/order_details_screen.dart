@@ -22,17 +22,20 @@ class OrderDetailsBottomSheet extends StatefulWidget {
       _OrderDetailsBottomSheetState();
 }
 final Map<DeliveryStage, String> _statusAPIMap = {
+  DeliveryStage.awaitingStart: "awaiting_start",
   DeliveryStage.goingToPickup: "start_journey_to_restaurant",
   DeliveryStage.atPickup: "reached_restaurant",
-  DeliveryStage.goingToCustomer: "picked_up",        // after pickup
-  DeliveryStage.reachedCustomer: "reached_customer", // <-- missing
-  DeliveryStage.outForDelivery: "out_for_delivery",  // <-- missing
+  DeliveryStage.goingToCustomer: "picked_up",
+  DeliveryStage.outForDelivery: "out_for_delivery",
+  DeliveryStage.reachedCustomer: "reached_customer",
   DeliveryStage.completed: "delivered",
 };
 
 
+
 // Delivery stage flow
 enum DeliveryStage {
+  awaitingStart,
   notStarted,
   goingToPickup,     // start_journey_to_restaurant
   atPickup,          // reached_restaurant
@@ -604,10 +607,12 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
     );
   }
 
- void _onSlideCompleted() async {
+void _onSlideCompleted() async {
+  
   DeliveryStage newStage;
 
   switch (_stage) {
+    case DeliveryStage.awaitingStart:
     case DeliveryStage.notStarted:
       newStage = DeliveryStage.goingToPickup;
       break;
@@ -621,19 +626,19 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
       break;
 
     case DeliveryStage.goingToCustomer:
-      newStage = DeliveryStage.outForDelivery;   // missing
+      newStage = DeliveryStage.outForDelivery;
       break;
 
     case DeliveryStage.outForDelivery:
-      newStage = DeliveryStage.reachedCustomer;  // missing
+      newStage = DeliveryStage.reachedCustomer;
       break;
 
     case DeliveryStage.reachedCustomer:
-      newStage = DeliveryStage.completed;        // final
+      newStage = DeliveryStage.completed;
       break;
 
     case DeliveryStage.completed:
-      return;
+      return; // No more transitions
   }
 
   setState(() {
@@ -658,22 +663,9 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
     controller.loadOrderDetails(widget.orderId);
   }
 }
-
-
-
-  void _scrollToSection(GlobalKey key) {
-    final ctx = key.currentContext;
-    if (ctx == null) return;
-    Scrollable.ensureVisible(
-      ctx,
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeInOut,
-      alignment: 0.1,
-    );
-  }
-
-  String _getStageLabel() {
+String _getStageLabel() {
   switch (_stage) {
+    case DeliveryStage.awaitingStart:
     case DeliveryStage.notStarted:
       return "Slide to start";
 
@@ -696,10 +688,9 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
       return "Completed";
   }
 }
-
-
-  Color _getStageColor() {
+Color _getStageColor() {
   switch (_stage) {
+    case DeliveryStage.awaitingStart:
     case DeliveryStage.notStarted:
       return Colors.orange;   // Start journey
 
@@ -722,6 +713,7 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
       return Colors.green;    // Delivered
   }
 }
+
 
 
   // ---------------- Helpers ---------------- //
