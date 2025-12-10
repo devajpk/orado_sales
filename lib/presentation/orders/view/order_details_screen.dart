@@ -21,22 +21,27 @@ class OrderDetailsBottomSheet extends StatefulWidget {
   State<OrderDetailsBottomSheet> createState() =>
       _OrderDetailsBottomSheetState();
 }
-
 final Map<DeliveryStage, String> _statusAPIMap = {
   DeliveryStage.goingToPickup: "start_journey_to_restaurant",
   DeliveryStage.atPickup: "reached_restaurant",
-  DeliveryStage.goingToCustomer: "picked_up",
+  DeliveryStage.goingToCustomer: "picked_up",        // after pickup
+  DeliveryStage.reachedCustomer: "reached_customer", // <-- missing
+  DeliveryStage.outForDelivery: "out_for_delivery",  // <-- missing
   DeliveryStage.completed: "delivered",
 };
 
+
 // Delivery stage flow
 enum DeliveryStage {
-  notStarted,        // Slide to start
-  goingToPickup,     // Slide when picked up
-  atPickup,          // Slide when arrived at pickup
-  goingToCustomer,   // Slide when delivered
-  completed,         // Done
+  notStarted,
+  goingToPickup,     // start_journey_to_restaurant
+  atPickup,          // reached_restaurant
+  goingToCustomer,   // picked_up
+  outForDelivery,    // out_for_delivery
+  reachedCustomer,   // reached_customer
+  completed,         // delivered
 }
+
 
 class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
   GoogleMapController? _mapController;
@@ -599,28 +604,32 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
     );
   }
 
-  void _onSlideCompleted() async {
+ void _onSlideCompleted() async {
   DeliveryStage newStage;
 
   switch (_stage) {
     case DeliveryStage.notStarted:
       newStage = DeliveryStage.goingToPickup;
-      widget.onStartPressed();
-      _scrollToSection(_pickupSectionKey);
       break;
 
     case DeliveryStage.goingToPickup:
       newStage = DeliveryStage.atPickup;
-      _scrollToSection(_arrivalSectionKey);
       break;
 
     case DeliveryStage.atPickup:
       newStage = DeliveryStage.goingToCustomer;
-      _scrollToSection(_deliverySectionKey);
       break;
 
     case DeliveryStage.goingToCustomer:
-      newStage = DeliveryStage.completed;
+      newStage = DeliveryStage.outForDelivery;   // missing
+      break;
+
+    case DeliveryStage.outForDelivery:
+      newStage = DeliveryStage.reachedCustomer;  // missing
+      break;
+
+    case DeliveryStage.reachedCustomer:
+      newStage = DeliveryStage.completed;        // final
       break;
 
     case DeliveryStage.completed:
@@ -632,27 +641,24 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
     _slideProgress = 0;
   });
 
-  // --- Call API status update only for mapped stages
+  // Call API
   if (_statusAPIMap.containsKey(newStage)) {
-    final statusString = _statusAPIMap[newStage]!;
+    final status = _statusAPIMap[newStage]!;
     final controller = context.read<OrderDetailController>();
-
-    final success = await controller.updateOrderStatus(statusString);
+    final success = await controller.updateOrderStatus(status);
 
     if (!mounted) return;
 
-    if (success) {
+    if (!success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Status updated: $statusString")),
-      );
-      controller.loadOrderDetails(widget.orderId); // refresh UI
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed: ${controller.errorMessage ?? 'Unknown error'}")),
+        SnackBar(content: Text("Failed: ${controller.errorMessage}")),
       );
     }
+
+    controller.loadOrderDetails(widget.orderId);
   }
 }
+
 
 
   void _scrollToSection(GlobalKey key) {
@@ -667,34 +673,56 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
   }
 
   String _getStageLabel() {
-    switch (_stage) {
-      case DeliveryStage.notStarted:
-        return "Slide to start";
-      case DeliveryStage.goingToPickup:
-        return "Slide when picked up";
-      case DeliveryStage.atPickup:
-        return "Slide when arrived at pickup";
-      case DeliveryStage.goingToCustomer:
-        return "Slide when delivered";
-      case DeliveryStage.completed:
-        return "Completed";
-    }
+  switch (_stage) {
+    case DeliveryStage.notStarted:
+      return "Slide to start";
+
+    case DeliveryStage.goingToPickup:
+      return "Slide when reached restaurant";
+
+    case DeliveryStage.atPickup:
+      return "Slide when picked up";
+
+    case DeliveryStage.goingToCustomer:
+      return "Slide to start delivery";
+
+    case DeliveryStage.outForDelivery:
+      return "Slide when reached customer";
+
+    case DeliveryStage.reachedCustomer:
+      return "Slide to complete";
+
+    case DeliveryStage.completed:
+      return "Completed";
   }
+}
+
 
   Color _getStageColor() {
-    switch (_stage) {
-      case DeliveryStage.notStarted:
-        return Colors.orange;
-      case DeliveryStage.goingToPickup:
-        return Colors.blue;
-      case DeliveryStage.atPickup:
-        return Colors.purple;
-      case DeliveryStage.goingToCustomer:
-        return Colors.green;
-      case DeliveryStage.completed:
-        return Colors.green;
-    }
+  switch (_stage) {
+    case DeliveryStage.notStarted:
+      return Colors.orange;   // Start journey
+
+    case DeliveryStage.goingToPickup:
+      return Colors.blue;     // Going to restaurant
+
+    case DeliveryStage.atPickup:
+      return Colors.purple;   // Reached restaurant
+
+    case DeliveryStage.goingToCustomer:
+      return Colors.teal;     // Picked up → heading to customer
+
+    case DeliveryStage.outForDelivery:
+      return Colors.indigo;   // Out for delivery
+
+    case DeliveryStage.reachedCustomer:
+      return Colors.deepOrange; // Reached customer
+
+    case DeliveryStage.completed:
+      return Colors.green;    // Delivered
   }
+}
+
 
   // ---------------- Helpers ---------------- //
 
