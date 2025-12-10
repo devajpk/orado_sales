@@ -127,7 +127,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
                             context,
                             MaterialPageRoute(
                               builder:
-                                  (_) => OrderDetailsScreen(orderId: orderId),
+                                  (_) => OrderDetailsScreen(orderId: orderId,
+    
+                                  ),
                             ),
                           );
                         } else {

@@ -38,6 +38,8 @@ class SocketController extends ChangeNotifier {
 
   bool get isConnected => _isConnected;
   bool get isAvailable => _isAvailable;
+  Map<String, dynamic>? latestOrderEvent;
+
 
   Future<void> initializeApp() async {
     if (_isLocationServiceInitialized) return;
@@ -337,6 +339,7 @@ class SocketController extends ChangeNotifier {
         },
         onNewOrder: (data) {
           log('new order assigned: $data');
+  
           final orderDetails = OrderPayload.fromJson(data);
           log("===========${orderDetails}");
           _showOrderBottomSheet(orderDetails);
@@ -826,7 +829,7 @@ class SocketController extends ChangeNotifier {
                                     MaterialPageRoute(
                                       builder:
                                           (context) =>
-                                          OrderDetailsScreen(orderId: order.orderDetails.id),
+                                          OrderDetailsScreen(orderId: order.orderDetails.id, ),
                                     ),
                                   );                                  // Navigator.pop(context);
                                   // Navigate to order details page if needed

@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 
 class OrderService {
   final String _baseUrl =
-      'https://orado-backend.onrender.com/agent/assigned-orders';
+      'https://orado.online/backend/agent/assigned-orders';
 
   Future<OrderModel?> fetchAssignedOrders(String token) async {
     try {

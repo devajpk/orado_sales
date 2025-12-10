@@ -62,7 +62,9 @@ class SocketService {
         }
 
         log('📦 New order received: $orderData');
+        
         onNewOrder?.call(orderData);
+        
       });
       // _socket!.on('order:new', (data) {
       //   log('📦 New order received: $data');

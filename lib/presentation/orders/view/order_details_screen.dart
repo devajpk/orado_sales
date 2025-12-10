@@ -3,10 +3,12 @@ import 'dart:developer';
 
 import 'package:oradosales/presentation/orders/model/order_details_model.dart';
 import 'package:oradosales/presentation/orders/provider/order_details_provider.dart';
+import 'package:oradosales/presentation/orders/provider/order_provider.dart';
 import 'package:oradosales/presentation/orders/provider/order_response_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:oradosales/presentation/socket_io/socket_controller.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -43,8 +45,43 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchOrderDetails();
+       SocketController.instance.addListener(_socketOrderListener);  // 👈 ADD THIS
     });
+    
   }
+  @override
+void dispose() {
+  SocketController.instance.removeListener(_socketOrderListener);
+  _mapController?.dispose();
+  _positionStreamSubscription?.cancel();
+  super.dispose();
+}
+
+  void _socketOrderListener() {
+  final event = SocketController.instance.latestOrderEvent;
+  if (event == null) return;
+
+  log("📩 New socket event received → refreshing order list");
+
+  // 👉 1. Refresh order list (Always)
+  if (mounted) {
+    context.read<OrderController>().fetchOrders();
+  }
+
+  // 👉 2. Refresh current order only if IDs match
+  final eventOrderId =
+      event["orderId"] ??
+      event["_id"] ??
+      event["id"] ??
+      event["orderDetails"]?["id"];
+
+  if (eventOrderId == widget.orderId) {
+    log("🔄 Updated event for THIS order → refresh details");
+    _fetchOrderDetails();
+  }
+}
+
+
 
   Future<void> _fetchOrderDetails() async {
     final controller = context.read<OrderDetailController>();
@@ -844,12 +881,5 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
-  }
-
-  @override
-  void dispose() {
-    _mapController?.dispose();
-    _positionStreamSubscription?.cancel();
-    super.dispose();
   }
 }

@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AgentOrderResponseService {                                             
-  final String baseUrl = "https://orado-backend.onrender.com";
+  final String baseUrl = "https://orado.online/backend";
 
   Future<OrderResponseModel> respondToOrder({
   required String orderId,
