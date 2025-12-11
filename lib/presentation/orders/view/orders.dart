@@ -117,7 +117,7 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
                               MaterialPageRoute(
                                 builder:
                                     (context) =>
-                                        OrderDetailsBottomSheet(orderId: order.id!, onStartPressed: () {},),
+                                        OrderDetailsBottomSheet(orderId: order.id!,),
                             ));
                           },
                           child: Padding(

@@ -37,12 +37,10 @@ enum DeliveryStage {
 
 class OrderDetailsBottomSheet extends StatefulWidget {
   final String orderId;
-  final VoidCallback onStartPressed;
 
   const OrderDetailsBottomSheet({
     Key? key,
     required this.orderId,
-    required this.onStartPressed,
   }) : super(key: key);
 
   @override
@@ -131,8 +129,8 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
         infoWindow: const InfoWindow(title: "Your Location"),
       );
 
-      _polylines.removeWhere(
-          (p) => p.polylineId.value == 'agent_to_restaurant');
+      _polylines
+          .removeWhere((p) => p.polylineId.value == 'agent_to_restaurant');
 
       if (_shopLatLng != null) {
         _polylines.add(
@@ -256,10 +254,7 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
   Widget build(BuildContext context) {
     return Consumer<OrderDetailController>(
       builder: (context, controller, _) {
-        // if (controller.isLoading) {
-        //   return _loadingSheet();
-        // }
-
+        // If still loading / not ready
         if (controller.order == null) {
           return Center(child: CircularProgressIndicator());
         }
@@ -698,7 +693,11 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
     );
   }
 
+  /// 🔥 IMPORTANT PART: handle exception + drag back on failure
   void _onSlideCompleted() async {
+    // save previous stage so we can revert if API fails
+    final DeliveryStage previousStage = _stage;
+
     DeliveryStage newStage;
 
     switch (_stage) {
@@ -731,6 +730,7 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
         return; // No more transitions
     }
 
+    // Optimistic UI update
     setState(() {
       _stage = newStage;
       _slideProgress = 0;
@@ -745,12 +745,16 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
       if (!mounted) return;
 
       if (!success) {
+        // ❌ API failed → rollback stage + reset slider
+        setState(() {
+          _stage = previousStage;
+          _slideProgress = 0.0;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed: ${controller.errorMessage}")),
+          SnackBar(content: Text("Failed: ${controller.errorMessage ?? 'Something went wrong'}")),
         );
       }
-
-      controller.loadOrderDetails(widget.orderId);
     }
   }
 
@@ -949,10 +953,6 @@ extension OrderDetailsBottomSheetExtension on BuildContext {
       backgroundColor: Colors.transparent,
       builder: (_) => OrderDetailsBottomSheet(
         orderId: orderId,
-        onStartPressed: () {
-          Navigator.pop(this);
-          onStart();
-        },
       ),
     );
   }

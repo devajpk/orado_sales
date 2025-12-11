@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:oradosales/presentation/orders/view/order_details_screen.dart';
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
@@ -31,8 +32,12 @@ class NotificationService {
       onDidReceiveNotificationResponse: (NotificationResponse response) {
         final payload = response.payload;
         if (payload != null && context.mounted) {
-          Navigator.of(context)
-              .pushNamed('/order-details', arguments: payload);
+          Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (context) => OrderDetailsBottomSheet(orderId: payload),
+  ),
+);
         }
       },
     );
@@ -73,7 +78,12 @@ class NotificationService {
       // Clicked notification (background / terminated)
       final orderId = message.data['orderId'] ?? '';
       if (orderId.isNotEmpty && context.mounted) {
-        Navigator.of(context).pushNamed('/order-details', arguments: orderId);
+        Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (context) => OrderDetailsBottomSheet(orderId: orderId),
+  ),
+);
       }
     });
 
@@ -83,7 +93,12 @@ class NotificationService {
     if (initialMessage != null) {
       final orderId = initialMessage.data['orderId'] ?? '';
       if (orderId.isNotEmpty && context.mounted) {
-        Navigator.of(context).pushNamed('/order-details', arguments: orderId);
+      Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (context) => OrderDetailsBottomSheet(orderId: orderId),
+  ),
+);
       }
     }
   }

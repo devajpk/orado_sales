@@ -829,9 +829,7 @@ class SocketController extends ChangeNotifier {
                                     MaterialPageRoute(
                                       builder:
                                           (context) =>
-                                          OrderDetailsBottomSheet(orderId: order.orderDetails.id,onStartPressed: () {
-                                            
-                                          }, ),
+                                          OrderDetailsBottomSheet(orderId: order.orderDetails.id ),
                                     ),
                                   );                                  // Navigator.pop(context);
                                   // Navigate to order details page if needed
