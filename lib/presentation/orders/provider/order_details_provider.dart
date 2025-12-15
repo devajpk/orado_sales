@@ -20,8 +20,6 @@ class OrderDetailController extends ChangeNotifier {
   notifyListeners();
 }
 
-  // ---------------- LOAD ORDER DETAILS (NO LOADING INDICATOR) ---------------- //
-
   Future<void> loadOrderDetails(String orderId) async {
     errorMessage = null;
 
@@ -38,7 +36,8 @@ class OrderDetailController extends ChangeNotifier {
 
       if (fetched != null) {
         orderDetails = fetched;
-      } else {
+      }
+      else {
         throw Exception('Failed to load order details');
       }
 

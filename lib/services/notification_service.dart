@@ -8,27 +8,29 @@ import 'package:oradosales/presentation/orders/view/order_details_screen.dart';
 import 'package:oradosales/services/navigation_service.dart';
 
 class NotificationService {
-  static Map<String, dynamic> _safeParsePayload(String payload) {
-  try {
-    return jsonDecode(payload); // Works if valid JSON
-  } catch (_) {
-    log("⚠ Invalid JSON payload detected, fixing manually...");
-
-    // Convert {key: value} → {"key": "value"}
-    final fixed = payload
-        .replaceAll("{", "{\"")
-        .replaceAll("}", "\"}")
-        .replaceAll(": ", "\": \"")
-        .replaceAll(", ", "\", \"");
-
-    log("➡ Fixed Payload = $fixed");
-
-    return jsonDecode(fixed);
-  }
-}
-
-  static final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
+  static final FlutterLocalNotificationsPlugin
+      _flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
+
+  /// ---------------------------------------------------------
+  /// SAFE PAYLOAD PARSER (UNCHANGED)
+  /// ---------------------------------------------------------
+  static Map<String, dynamic> _safeParsePayload(String payload) {
+    try {
+      return jsonDecode(payload);
+    } catch (_) {
+      log("⚠ Invalid JSON payload detected, fixing manually...");
+
+      final fixed = payload
+          .replaceAll("{", "{\"")
+          .replaceAll("}", "\"}")
+          .replaceAll(": ", "\": \"")
+          .replaceAll(", ", "\", \"");
+
+      log("➡ Fixed Payload = $fixed");
+      return jsonDecode(fixed);
+    }
+  }
 
   /// ---------------------------------------------------------
   /// INITIALIZE NOTIFICATIONS
@@ -37,7 +39,8 @@ class NotificationService {
     const AndroidInitializationSettings androidInit =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    const DarwinInitializationSettings iosInit = DarwinInitializationSettings(
+    const DarwinInitializationSettings iosInit =
+        DarwinInitializationSettings(
       requestSoundPermission: true,
       requestBadgePermission: true,
       requestAlertPermission: true,
@@ -50,31 +53,28 @@ class NotificationService {
 
     await _flutterLocalNotificationsPlugin.initialize(
       initSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
+      onDidReceiveNotificationResponse: (response) {
         try {
           final payload = response.payload;
           if (payload == null) return;
 
-     final fixedData = _safeParsePayload(payload);
-  final orderId = fixedData["orderId"];
+          final data = _safeParsePayload(payload);
+          final orderId = data["orderId"];
 
-          final ctx =
-              NavigationService.navigatorKey.currentState!.overlay!.context;
+          if (orderId == null || orderId.isEmpty) return;
 
-          Navigator.push(
-            ctx,
-            MaterialPageRoute(
-              builder: (_) => OrderDetailsBottomSheet(orderId: orderId),
-            ),
-          );
+          _navigateToOrder(orderId);
         } catch (e) {
           log("❌ Notification tap error: $e");
         }
       },
     );
 
-    // Create channels
-    const AndroidNotificationChannel orderChannel = AndroidNotificationChannel(
+    /// ---------------------------------------------------------
+    /// ANDROID CHANNELS
+    /// ---------------------------------------------------------
+    const AndroidNotificationChannel orderChannel =
+        AndroidNotificationChannel(
       'order_channel',
       'Order Notifications',
       description: 'Notifications for new orders and updates',
@@ -83,79 +83,43 @@ class NotificationService {
       sound: RawResourceAndroidNotificationSound('order_assignment'),
     );
 
-    const AndroidNotificationChannel locationChannel =
-        AndroidNotificationChannel(
-      'location_service',
-      'Location Service',
-      description: 'Background location tracking',
-      importance: Importance.low,
-      playSound: false,
-    );
-
     final androidPlugin =
         _flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
 
     await androidPlugin?.createNotificationChannel(orderChannel);
-    await androidPlugin?.createNotificationChannel(locationChannel);
 
     /// ---------------------------------------------------------
     /// FOREGROUND MESSAGE
     /// ---------------------------------------------------------
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      _handleFCMMessage(message);
-    });
+    FirebaseMessaging.onMessage.listen(_handleFCMMessage);
 
     /// ---------------------------------------------------------
-    /// BACKGROUND (APP OPENED FROM NOTIFICATION)
+    /// BACKGROUND TAP
     /// ---------------------------------------------------------
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      try {
-        final data = message.data;
-        final orderId = data["orderId"];
-
-        final ctx =
-            NavigationService.navigatorKey.currentState!.overlay!.context;
-
-        Navigator.push(
-          ctx,
-          MaterialPageRoute(
-            builder: (_) => OrderDetailsBottomSheet(orderId: orderId),
-          ),
-        );
-      } catch (e) {
-        log("❌ Background tap error: $e");
+    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      final orderId = message.data["orderId"];
+      if (orderId != null && orderId.isNotEmpty) {
+        _navigateToOrder(orderId);
       }
     });
 
     /// ---------------------------------------------------------
-    /// TERMINATED → APP OPENED FROM NOTIFICATION
+    /// TERMINATED TAP
     /// ---------------------------------------------------------
-    RemoteMessage? initialMessage =
+    final initialMessage =
         await FirebaseMessaging.instance.getInitialMessage();
 
     if (initialMessage != null) {
-      try {
-        final data = initialMessage.data;
-        final orderId = data["orderId"];
-
-        final ctx =
-            NavigationService.navigatorKey.currentState!.overlay!.context;
-
-        Navigator.push(
-          ctx,
-          MaterialPageRoute(
-            builder: (_) => OrderDetailsBottomSheet(orderId: orderId),
-          ),
-        );
-      } catch (e) {
-        log("❌ Terminated-state tap error: $e");
+      final orderId = initialMessage.data["orderId"];
+      if (orderId != null && orderId.isNotEmpty) {
+        _navigateToOrder(orderId);
       }
     }
   }
 
   /// ---------------------------------------------------------
-  /// SHOW LOCAL NOTIFICATION
+  /// SHOW LOCAL NOTIFICATION (UNCHANGED PAYLOAD)
   /// ---------------------------------------------------------
   static Future<void> showNotification({
     required String title,
@@ -163,7 +127,7 @@ class NotificationService {
     required String payload,
   }) async {
     try {
-      AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      final androidDetails = AndroidNotificationDetails(
         'order_channel',
         'Order Notifications',
         channelDescription: 'Notifications for order updates',
@@ -176,24 +140,22 @@ class NotificationService {
         visibility: NotificationVisibility.public,
       );
 
-      const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+      const iosDetails = DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
         sound: 'order_assignment.caf',
       );
 
-      NotificationDetails platformDetails = NotificationDetails(
-        android: androidDetails,
-        iOS: iosDetails,
-      );
-
       await _flutterLocalNotificationsPlugin.show(
         0,
         title,
         body,
-        platformDetails,
-        payload: payload,
+        NotificationDetails(
+          android: androidDetails,
+          iOS: iosDetails,
+        ),
+        payload: payload, // ❌ NOT CHANGED
       );
     } catch (e) {
       log('❌ Error showing notification: $e');
@@ -201,23 +163,52 @@ class NotificationService {
   }
 
   /// ---------------------------------------------------------
-  /// HANDLE INCOMING FCM MESSAGE
+  /// HANDLE FCM MESSAGE
   /// ---------------------------------------------------------
   static void _handleFCMMessage(RemoteMessage message) {
     if (message.data['type'] == 'order_assignment') {
-      log("📩 Incoming ORDER_ASSIGNMENT: ${message.toMap()}");
+      log("📩 Incoming ORDER_ASSIGNMENT");
 
-      String title = message.notification?.title ?? 'New Order Assignment';
-      String body = message.notification?.body ?? '';
+      final title =
+          message.notification?.title ?? 'New Order Assignment';
+      final body = message.notification?.body ?? '';
 
-      /// FIXED: Always send VALID JSON payload
-      String payload = jsonEncode({
+      /// ❌ PAYLOAD NOT TOUCHED
+      final payload = jsonEncode({
         "orderId": message.data['orderId'] ?? "",
         "address": message.data['address'] ?? "",
         "type": message.data['type'] ?? "",
       });
 
-      showNotification(title: title, body: body, payload: payload);
+      showNotification(
+        title: title,
+        body: body,
+        payload: payload,
+      );
     }
+  }
+
+  /// ---------------------------------------------------------
+  /// SAFE NAVIGATION (🔥 FIX)
+  /// ---------------------------------------------------------
+  static void _navigateToOrder(String orderId) {
+    Future.delayed(const Duration(milliseconds: 400), () {
+      final navigatorState =
+          NavigationService.navigatorKey.currentState;
+
+      if (navigatorState == null) {
+        log("❌ Navigator not ready");
+        return;
+      }
+
+      navigatorState.push(
+        MaterialPageRoute(
+          builder: (_) =>
+              OrderDetailsBottomSheet(orderId: orderId),
+        ),
+      );
+
+      log("✅ Navigated to order: $orderId");
+    });
   }
 }

@@ -67,6 +67,7 @@ dependencies:
   firebase_crashlytics: ^5.0.2
   disable_battery_optimization: ^1.1.2
   url_launcher: ^6.3.2
+  permission_handler: ^12.0.1
 
 dev_dependencies:
   flutter_test:

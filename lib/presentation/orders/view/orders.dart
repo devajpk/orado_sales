@@ -28,20 +28,77 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
     await Provider.of<OrderController>(context, listen: false).fetchOrders();
   }
 
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return Colors.orange;
-      case 'in progress':
-        return Colors.blue;
-      case 'completed':
-        return Colors.green;
-      case 'cancelled':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
+ Color _getStatusColor(String status) {
+  switch (status.toLowerCase()) {
+    case 'awaiting_start':            // Not started yet
+      return Colors.orange;
+
+    case 'accepted_by_restaurant':    // Restaurant accepted
+      return Colors.blue;
+
+    case 'start_journey_to_restaurant':
+    case 'on_the_way':                // Agent traveling
+    case 'going_to_pickup':
+      return Colors.lightBlue;
+
+    case 'reached_restaurant':
+      return Colors.purple;
+
+    case 'picked_up':
+      return Colors.teal;
+
+    case 'out_for_delivery':
+      return Colors.indigo;
+
+    case 'reached_customer':
+      return Colors.deepOrange;
+
+    case 'delivered':                  // Completed
+      return Colors.green;
+
+    case 'cancelled':
+      return Colors.red;
+
+    default:
+      return Colors.grey;              // Unknown status
   }
+}
+String getStatusActionLabel(String status) {
+  switch (status.toLowerCase()) {
+
+    case 'awaiting_start':
+    case 'accepted_by_restaurant':
+      return "Start Pickup";
+
+    case 'start_journey_to_restaurant':
+    case 'on_the_way':
+    case 'going_to_pickup':
+      return "Go to Restaurant";
+
+    case 'reached_restaurant':
+      return "Reached Restaurant";
+
+    case 'picked_up':
+      return "Picked Up - Start Delivery";
+
+    case 'out_for_delivery':
+      return "Delivering to Customer";
+
+    case 'reached_customer':
+      return "Reached Customer";
+
+    case 'delivered':
+      return "Delivery Completed";
+
+    case 'cancelled':
+      return "Order Cancelled";
+
+    default:
+      return "Unknown Status";
+  }
+}
+
+
 
   String _getTimeAgo(DateTime dateTime) {
     final now = DateTime.now();
@@ -148,7 +205,7 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
-                                        order.status ?? '',
+                                        getStatusActionLabel(order.status ?? ''),
                                         style: TextStyle(
                                           color: _getStatusColor(
                                             order.status ?? '',

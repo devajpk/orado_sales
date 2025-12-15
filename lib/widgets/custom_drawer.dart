@@ -255,7 +255,6 @@ class CustomDrawer extends StatelessWidget {
                           listen: false,
                         );
                     agentController.isAvailable = false;
-                    await agentController.persistAvailability(false);
 
                     Navigator.of(context).pop(); // Dismiss dialog
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:oradosales/presentation/orders/provider/order_details_provider.dart' hide AgentOrderResponseController;
+import 'package:oradosales/presentation/orders/provider/order_provider.dart';
 import 'package:oradosales/presentation/orders/provider/order_response_controller.dart';
 import 'package:oradosales/presentation/orders/view/task_details.dart';
 import 'package:provider/provider.dart';
@@ -537,33 +538,31 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
   // ---------------- Accept / Reject ---------------- //
 
 Widget _buildAcceptRejectButtons(dynamic order) {
-  if (order.showAcceptReject != true) {
+  final responseController = context.watch<AgentOrderResponseController>();
+
+  final bool shouldShowButtons = order.showAcceptReject == true;
+  final bool isLoading = responseController.isLoading;
+
+  if (!shouldShowButtons) {
     return const SizedBox.shrink();
   }
-
-  final responseController = context.watch<AgentOrderResponseController>();
-  final isLoading = responseController.isLoading;
 
   return Column(
     children: [
       Row(
         children: [
-          // ---------- ACCEPT BUTTON ----------
+          // ---------- ACCEPT ----------
           Expanded(
             child: ElevatedButton(
-              onPressed: isLoading
-                  ? null
-                  : () async {
-                      await _respondToOrder("accept");
-                    },
+              onPressed: isLoading ? null : () async {
+                await _respondToOrder("accept");
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: isLoading
+              child: responseController.loadingIndex == 0
                   ? const SizedBox(
                       height: 20,
                       width: 20,
@@ -572,32 +571,27 @@ Widget _buildAcceptRejectButtons(dynamic order) {
                         strokeWidth: 2,
                       ),
                     )
-                  : const Text(
-                      "Accept Order",
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
+                  : const Text("Pickup Order",
+                      style: TextStyle(color: Colors.white, fontSize: 16)),
             ),
           ),
 
           const SizedBox(width: 12),
 
-          // ---------- REJECT BUTTON ----------
+          // ---------- REJECT ----------
           Expanded(
             child: ElevatedButton(
-              onPressed: isLoading
-                  ? null
-                  : () async {
-                      await _respondToOrder("reject");
-                    },
+              onPressed: isLoading ? null : () async {
+                await _respondToOrder("reject");
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: isLoading
-                  ? const SizedBox(
+              child: responseController.loadingIndex == 1
+                  ? 
+                  const SizedBox(
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
@@ -605,15 +599,12 @@ Widget _buildAcceptRejectButtons(dynamic order) {
                         strokeWidth: 2,
                       ),
                     )
-                  : const Text(
-                      "Reject",
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
+                  : const Text("Reject",
+                      style: TextStyle(color: Colors.white, fontSize: 16)),
             ),
           ),
         ],
       ),
-
       const SizedBox(height: 16),
     ],
   );
@@ -621,214 +612,265 @@ Widget _buildAcceptRejectButtons(dynamic order) {
 
 
 
+
+
   Future<void> _respondToOrder(String action) async {
     final agentController = context.read<AgentOrderResponseController>();
+    
+    // Prevent multiple taps
+    if (agentController.isLoading) return;
+    
     await agentController.respond(widget.orderId, action);
 
     if (!mounted) return;
 
     if (agentController.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed: ${agentController.error}")),
+        SnackBar(
+          content: Text("Failed: ${agentController.error}"),
+          backgroundColor: Colors.red,
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Order $action')),
+        SnackBar(
+          content: Text('Order ${action == "accept" ? "accepted" : "rejected"}'),
+          backgroundColor: Colors.green,
+        ),
       );
 
-      // refresh order details so showAcceptReject becomes false
+      // Refresh order details
       await context
           .read<OrderDetailController>()
           .loadOrderDetails(widget.orderId);
 
-      setState(() {});
-
-      if (action == "reject") {
-        Navigator.pop(context); // close bottom sheet on reject
-      }
+   
     }
   }
 
-  // ---------------- Slide Button ---------------- //
-
   Widget _buildSlideButton() {
-    final bool isCompleted = _stage == DeliveryStage.completed;
+  final controller = context.watch<OrderDetailController>();
+  final bool isLoading = controller.isSlideLoading;
 
-    if (isCompleted) {
-      return Container(
-        height: 56,
-        decoration: BoxDecoration(
-          color: Colors.green,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Center(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 8),
-              Text(
-                "Completed",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+  final bool isCompleted = _stage == DeliveryStage.completed;
 
-    final Color trackColor = _getStageColor();
-    final String label = _getStageLabel();
-
-    return SizedBox(
+  if (isCompleted) {
+    return Container(
       height: 56,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final double width = constraints.maxWidth;
-          const double knobSize = 52;
-          final double maxKnobX = width - knobSize;
-          final double clampedProgress =
-              _slideProgress.clamp(0.0, 1.0); // 0..1
-          final double knobX = maxKnobX * clampedProgress;
-
-          return GestureDetector(
-            onHorizontalDragUpdate: (details) {
-              final dx = details.localPosition.dx;
-              double p = dx / maxKnobX;
-              if (p < 0) p = 0;
-              if (p > 1) p = 1;
-              setState(() {
-                _slideProgress = p;
-              });
-            },
-            onHorizontalDragEnd: (_) {
-              if (_slideProgress > 0.8) {
-                _onSlideCompleted();
-              } else {
-                setState(() {
-                  _slideProgress = 0;
-                });
-              }
-            },
-            child: Stack(
-              children: [
-                // Track
-                Container(
-                  decoration: BoxDecoration(
-                    color: trackColor.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: trackColor.withOpacity(0.6)),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                // Knob
-                Positioned(
-                  left: knobX.clamp(0.0, maxKnobX),
-                  top: 2,
-                  bottom: 2,
-                  child: Container(
-                    width: knobSize,
-                    decoration: BoxDecoration(
-                      color: trackColor,
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: trackColor.withOpacity(0.4),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.double_arrow,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
+      decoration: BoxDecoration(
+        color: Colors.green,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: 8),
+            Text(
+              "Completed",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
 
+  final Color trackColor = _getStageColor();
+  final String label = isLoading ? "Updating…" : _getStageLabel();
+
+  return SizedBox(
+    height: 56,
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final double width = constraints.maxWidth;
+        const double knobSize = 52;
+        final double maxKnobX = width - knobSize;
+        final double clampedProgress = _slideProgress.clamp(0.0, 1.0);
+        final double knobX = maxKnobX * clampedProgress;
+
+        return GestureDetector(
+          onHorizontalDragUpdate: isLoading
+              ? null
+              : (details) {
+                  final dx = details.localPosition.dx;
+                  double p = dx / maxKnobX;
+                  if (p < 0) p = 0;
+                  if (p > 1) p = 1;
+                  setState(() {
+                    _slideProgress = p;
+                  });
+                },
+          onHorizontalDragEnd: isLoading
+              ? null
+              : (_) {
+                  if (_slideProgress > 0.8) {
+                    _onSlideCompleted();
+                  } else {
+                    setState(() {
+                      _slideProgress = 0;
+                    });
+                  }
+                },
+          child: Stack(
+            children: [
+              // Track
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                decoration: BoxDecoration(
+                  color: isLoading
+                      ? Colors.grey.withOpacity(0.2)
+                      : trackColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isLoading
+                        ? Colors.grey
+                        : trackColor.withOpacity(0.6),
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+
+              // Knob
+              Positioned(
+                left: knobX.clamp(0.0, maxKnobX),
+                top: 2,
+                bottom: 2,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  width: knobSize,
+                  decoration: BoxDecoration(
+                    color: isLoading ? Colors.grey : trackColor,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: isLoading
+                        ? []
+                        : [
+                            BoxShadow(
+                              color: trackColor.withOpacity(0.4),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                  ),
+                  child: isLoading
+                      ? const Center(
+                          child: SizedBox(
+                            height: 22,
+                            width: 22,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        )
+                      : const Icon(
+                          Icons.double_arrow,
+                          color: Colors.white,
+                        ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+  );
+}
+
+
   /// 🔥 IMPORTANT PART: handle exception + drag back on failure
   void _onSlideCompleted() async {
-    // save previous stage so we can revert if API fails
-    final DeliveryStage previousStage = _stage;
+  final DeliveryStage previousStage = _stage;
+  DeliveryStage newStage;
 
-    DeliveryStage newStage;
+  switch (_stage) {
+    case DeliveryStage.awaitingStart:
+    case DeliveryStage.notStarted:
+      newStage = DeliveryStage.goingToPickup;
+      break;
 
-    switch (_stage) {
-      case DeliveryStage.awaitingStart:
-      case DeliveryStage.notStarted:
-        newStage = DeliveryStage.goingToPickup;
-        break;
+    case DeliveryStage.goingToPickup:
+      newStage = DeliveryStage.atPickup;
+      break;
 
-      case DeliveryStage.goingToPickup:
-        newStage = DeliveryStage.atPickup;
-        break;
+    case DeliveryStage.atPickup:
+      newStage = DeliveryStage.goingToCustomer;
+      break;
 
-      case DeliveryStage.atPickup:
-        newStage = DeliveryStage.goingToCustomer;
-        break;
+    case DeliveryStage.goingToCustomer:
+      newStage = DeliveryStage.outForDelivery;
+      break;
 
-      case DeliveryStage.goingToCustomer:
-        newStage = DeliveryStage.outForDelivery;
-        break;
+    case DeliveryStage.outForDelivery:
+      newStage = DeliveryStage.reachedCustomer;
+      break;
 
-      case DeliveryStage.outForDelivery:
-        newStage = DeliveryStage.reachedCustomer;
-        break;
+    case DeliveryStage.reachedCustomer:
+      newStage = DeliveryStage.completed;
+      break;
 
-      case DeliveryStage.reachedCustomer:
-        newStage = DeliveryStage.completed;
-        break;
+    case DeliveryStage.completed:
+      return;
+  }
 
-      case DeliveryStage.completed:
-        return; // No more transitions
+  // Optimistic UI update
+  setState(() {
+    _stage = newStage;
+    _slideProgress = 0;
+  });
+
+  if (!_statusAPIMap.containsKey(newStage)) return;
+
+  final status = _statusAPIMap[newStage]!;
+  final controller = context.read<OrderDetailController>();
+
+  final success = await controller.updateOrderStatus(status);
+
+  if (!mounted) return;
+
+  if (success) {
+    // Refresh orders list
+    context.read<OrderController>().fetchOrders();
+
+    // ✅ CLOSE BOTTOM SHEET WHEN COMPLETED
+    if (newStage == DeliveryStage.completed) {
+      await Future.delayed(const Duration(milliseconds: 400));
+
+      if (mounted) {
+        Navigator.of(context).pop(true); // <-- THIS IS THE KEY LINE
+      }
     }
-
-    // Optimistic UI update
+  } else {
+    // Rollback UI on failure
     setState(() {
-      _stage = newStage;
+      _stage = previousStage;
       _slideProgress = 0;
     });
 
-    // Call API
-    if (_statusAPIMap.containsKey(newStage)) {
-      final status = _statusAPIMap[newStage]!;
-      final controller = context.read<OrderDetailController>();
-      final success = await controller.updateOrderStatus(status);
-
-      if (!mounted) return;
-
-      if (!success) {
-        // ❌ API failed → rollback stage + reset slider
-        setState(() {
-          _stage = previousStage;
-          _slideProgress = 0.0;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed: ${controller.errorMessage ?? 'Something went wrong'}")),
-        );
-      }
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          controller.errorMessage ?? "Something went wrong",
+        ),
+      ),
+    );
   }
+}
+
+  
 
   String _getStageLabel() {
     switch (_stage) {

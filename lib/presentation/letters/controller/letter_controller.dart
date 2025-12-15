@@ -12,7 +12,7 @@ class LetterController with ChangeNotifier {
   bool isLoading = false;
 
   Future<void> loadAgentInfo() async {
-    isLoading = true;
+
     notifyListeners();
 
     termination = await _agentService.fetchTerminationInfo();

@@ -22,6 +22,13 @@ class FCMHandler {
     await _setupFCM();
   }
 
+  Future<void> sendTokenAfterLogin() async {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp();
+    }
+    await _sendTokenToServer();
+  }
+
   Future<void> _initTTS() async {
     await flutterTts.setLanguage("en-US");
     await flutterTts.setSpeechRate(0.5);
@@ -144,3 +151,4 @@ class FCMHandler {
     log("Handling a background message: ${message.messageId}");
   }
 }
+
