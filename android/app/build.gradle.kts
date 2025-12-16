@@ -48,11 +48,11 @@ android {
 
    signingConfigs {
         if (keystorePropertiesFile.exists()) {
-            create("release") {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
+        create("release") {
+            keyAlias = keystoreProperties["keyAlias"] as String
+            keyPassword = keystoreProperties["keyPassword"] as String
                 storeFile = keystoreProperties["storeFile"]?.let { file(it as String) }
-                storePassword = keystoreProperties["storePassword"] as String
+            storePassword = keystoreProperties["storePassword"] as String
             }
         }
     }
@@ -66,7 +66,7 @@ android {
         }
         release {
             if (keystorePropertiesFile.exists()) {
-                signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName("release")
             } else {
                 // Use debug signing if no keystore is configured
                 signingConfig = signingConfigs.getByName("debug")

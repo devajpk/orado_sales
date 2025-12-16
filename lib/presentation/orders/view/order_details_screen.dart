@@ -121,11 +121,11 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
   }
 
   @override
-  void dispose() {
-    _mapController?.dispose();
-    _positionStreamSubscription?.cancel();
-    super.dispose();
-  }
+void dispose() {
+  _mapController?.dispose();
+  _positionStreamSubscription?.cancel();
+  super.dispose();
+}
 
   // ---------------- LIVE LOCATION ---------------- //
 
@@ -147,9 +147,9 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
     ).listen((position) {
       if (!mounted) return;
 
-      _agentLatLng = LatLng(position.latitude, position.longitude);
+        _agentLatLng = LatLng(position.latitude, position.longitude);
       _updateAgentOnMap();
-    });
+      });
   }
 
   void _updateAgentOnMap() {
@@ -213,29 +213,29 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
     _deliveryLatLng = LatLng(delLoc.latitude!, delLoc.longitude!);
 
     _shopMarker = Marker(
-      markerId: const MarkerId('shop'),
+        markerId: const MarkerId('shop'),
       position: _shopLatLng!,
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
       infoWindow:
           InfoWindow(title: order.restaurant.name, snippet: "Restaurant"),
-    );
+      );
 
     _customerMarker = Marker(
       markerId: const MarkerId('customer'),
       position: _deliveryLatLng!,
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
       infoWindow:
           InfoWindow(title: order.customer.name, snippet: "Delivery Address"),
     );
 
-    _polylines = {
-      Polyline(
-        polylineId: const PolylineId('route'),
-        color: Colors.blue,
-        width: 4,
+      _polylines = {
+        Polyline(
+          polylineId: const PolylineId('route'),
+          color: Colors.blue,
+          width: 4,
         points: [_shopLatLng!, _deliveryLatLng!],
-        patterns: [PatternItem.dash(20), PatternItem.gap(10)],
-      ),
+          patterns: [PatternItem.dash(20), PatternItem.gap(10)],
+        ),
     };
 
     _staticMapInitialized = true;
@@ -289,20 +289,20 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
   @override
   Widget build(BuildContext context) {
     return Consumer<OrderDetailController>(
-      builder: (context, controller, _) {
+          builder: (context, controller, _) {
         // If still loading / not ready
         if (controller.order == null) {
           return Center(child: CircularProgressIndicator());
-        }
+            }
 
         final order = controller.order!;
         // Only update stage from backend if not currently sliding
         if (order.agentDeliveryStatus != null && !_isSliding) {
           _stage = mapBackendStatus(order.agentDeliveryStatus.toLowerCase());
-        }
+            }
         // Reset response flag if order no longer shows accept/reject
         if (order.showAcceptReject != true && _hasRespondedToOrder) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               setState(() {
                 _hasRespondedToOrder = false;
@@ -319,23 +319,23 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Stack(
-            children: [
+                children: [
               Positioned.fill(
-                child: GoogleMap(
-                  initialCameraPosition: CameraPosition(
+                    child: GoogleMap(
+                      initialCameraPosition: CameraPosition(
                     target: LatLng(order.restaurant.location.latitude ?? 0.0,
                         order.restaurant.location.longitude ?? 0.0),
-                    zoom: 12,
-                  ),
+                        zoom: 12,
+                      ),
                   onMapCreated: _onMapCreated,
                   markers: _markers(),
-                  polylines: _polylines,
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: true,
+                      polylines: _polylines,
+                      myLocationEnabled: true,
+                      myLocationButtonEnabled: true,
                   mapToolbarEnabled: false,
                   zoomControlsEnabled: false,
-                ),
-              ),
+                    ),
+                  ),
 
               /// Draggable Bottom Sheet
               DraggableScrollableSheet(
@@ -369,18 +369,18 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
       decoration: const BoxDecoration(
         color: Colors.black,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+                        ),
       child: Column(
         children: [
           // Scrollable content
           Expanded(
             child: SingleChildScrollView(
               controller: scroll,
-              child: Padding(
+                        child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
+                          child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                            children: [
                     const SizedBox(height: 12),
 
                     // Drag handle
@@ -392,21 +392,21 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
                         decoration: BoxDecoration(
                           color: Colors.grey[600],
                           borderRadius: BorderRadius.circular(2),
-                        ),
+                                ),
                       ),
                     ),
 
                     // Pickup section (for scroll target)
                     Container(
                       key: _pickupSectionKey,
-                      child: Row(
+                                  child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
+                                    children: [
                           Row(
                             children: [
                               const Icon(Icons.access_time,
                                   color: Colors.white),
-                              const SizedBox(width: 8),
+                                      const SizedBox(width: 8),
                               Text('${_formatTime(order.createdAt)} - Pickup'),
                             ],
                           ),
@@ -419,13 +419,13 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
                             ),
                             child: Text(
                               _getStatusBadge(order.status),
-                              style: const TextStyle(
+                                        style: const TextStyle(
                                   color: Colors.purple, fontSize: 10),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
 
                     const SizedBox(height: 22),
 
@@ -483,14 +483,14 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
                     const SizedBox(height: 20),
 
                     Row(
-                      children: [
+                  children: [
                         const Icon(Icons.receipt, color: Colors.white),
                         const SizedBox(width: 12),
                         Text(
                           "ORDER ID #${order.id.substring(order.id.length - 8)}",
-                        ),
-                      ],
                     ),
+                  ],
+                ),
 
                     const SizedBox(height: 25),
 
@@ -534,18 +534,18 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
             child: Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: Column(
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: [
+                  children: [
                   _buildAcceptRejectButtons(order),
                   if (order.showAcceptReject != true) _buildSlideButton(),
-                ],
+                        ],
               ),
-            ),
-          ),
-        ],
-      ),
-    );
+                      ),
+                    ),
+                  ],
+                ),
+              );
   }
 
   // ---------------- Accept / Reject ---------------- //
@@ -560,8 +560,8 @@ Widget _buildAcceptRejectButtons(dynamic order) {
     return const SizedBox.shrink();
   }
 
-  return Column(
-    children: [
+              return Column(
+                children: [
       Row(
         children: [
           // ---------- ACCEPT ----------
@@ -574,7 +574,7 @@ Widget _buildAcceptRejectButtons(dynamic order) {
                 backgroundColor: Colors.green,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
+      ),
               child: responseController.loadingIndex == 0
                   ? const SizedBox(
                       height: 20,
@@ -601,7 +601,7 @@ Widget _buildAcceptRejectButtons(dynamic order) {
                 backgroundColor: Colors.red,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
+      ),
               child: responseController.loadingIndex == 1
                   ? 
                   const SizedBox(
@@ -610,12 +610,12 @@ Widget _buildAcceptRejectButtons(dynamic order) {
                       child: CircularProgressIndicator(
                         color: Colors.white,
                         strokeWidth: 2,
-                      ),
+          ),
                     )
                   : const Text("Reject",
                       style: TextStyle(color: Colors.white, fontSize: 16)),
             ),
-          ),
+        ),
         ],
       ),
       const SizedBox(height: 16),
@@ -711,7 +711,7 @@ Widget _buildAcceptRejectButtons(dynamic order) {
                 color: Colors.white,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-              ),
+            ),
             ),
           ],
         ),
@@ -756,7 +756,7 @@ Widget _buildAcceptRejectButtons(dynamic order) {
                   }
                 },
           child: Stack(
-            children: [
+        children: [
               // Track
               AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
@@ -769,10 +769,10 @@ Widget _buildAcceptRejectButtons(dynamic order) {
                     color: isLoading
                         ? Colors.grey
                         : trackColor.withOpacity(0.6),
-                  ),
-                ),
+            ),
+          ),
                 alignment: Alignment.center,
-                child: Text(
+            child: Text(
                   label,
                   style: const TextStyle(
                     color: Colors.white,
@@ -817,16 +817,16 @@ Widget _buildAcceptRejectButtons(dynamic order) {
                       : const Icon(
                           Icons.double_arrow,
                           color: Colors.white,
-                        ),
-                ),
               ),
-            ],
+            ),
+          ),
+        ],
           ),
         );
       },
-    ),
-  );
-}
+      ),
+    );
+  }
 
 
   /// 🔥 IMPORTANT PART: handle exception + drag back on failure
@@ -917,13 +917,13 @@ Widget _buildAcceptRejectButtons(dynamic order) {
       _slideProgress = 0;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           controller.errorMessage ?? "Something went wrong",
         ),
       ),
-    );
+      );
   }
 }
 
@@ -1034,7 +1034,7 @@ Widget _buildAcceptRejectButtons(dynamic order) {
           const SizedBox(height: 8),
           Text(value, style: TextStyle(color: Colors.grey[400])),
         ],
-      ),
+                ),
     );
   }
 
@@ -1044,7 +1044,7 @@ Widget _buildAcceptRejectButtons(dynamic order) {
       decoration: const BoxDecoration(
         color: Colors.black,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+                ),
       child: const Center(
         child: CircularProgressIndicator(color: Colors.white),
       ),
@@ -1061,7 +1061,7 @@ Widget _buildAcceptRejectButtons(dynamic order) {
       child: const Center(
         child: Text("Order not found", style: TextStyle(color: Colors.white)),
       ),
-    );
+      );
   }
 
   String _formatTime(DateTime date) {

@@ -26,7 +26,7 @@ class _SplashScreenState extends State<SplashScreen> {
     super.initState();
     // Wait for the frame to be built before checking auth
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAuthStatus();
+    _checkAuthStatus();
     });
     
     // Set a timeout to ensure we don't get stuck on splash screen
@@ -81,12 +81,12 @@ class _SplashScreenState extends State<SplashScreen> {
 
           if (!mounted) return;
 
-          if (selfieStatus?.selfieRequired == true) {
+            if (selfieStatus?.selfieRequired == true) {
             log("➡️ Navigating to selfie screen");
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const UploadSelfieScreen())
             );
-          } else {
+            } else {
             log("➡️ Navigating to main screen");
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const MainScreen())

@@ -153,21 +153,21 @@ class FCMHandler {
           ? message.data.toString()
           : '{"type":"order_assignment"}';
 
-      const androidDetails = AndroidNotificationDetails(
+    const androidDetails = AndroidNotificationDetails(
         'order_channel',
         'Order Notifications',
-        importance: Importance.max,
-        priority: Priority.high,
+      importance: Importance.max,
+      priority: Priority.high,
         playSound: true,
-      );
+    );
 
-      const notificationDetails = NotificationDetails(android: androidDetails);
+    const notificationDetails = NotificationDetails(android: androidDetails);
 
-      await _flutterLocalNotificationsPlugin.show(
-        0,
+    await _flutterLocalNotificationsPlugin.show(
+      0,
         title,
         body,
-        notificationDetails,
+      notificationDetails,
         payload: payload,
       );
 

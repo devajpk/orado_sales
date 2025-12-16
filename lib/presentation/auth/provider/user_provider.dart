@@ -120,11 +120,11 @@ class AuthController extends ChangeNotifier {
       if (context.mounted) {
         // Check selfie status
         try {
-          final selfieStatus = await SelfieStatusService().fetchSelfieStatus();
-          if (selfieStatus?.selfieRequired == true) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const UploadSelfieScreen()),
-            );
+        final selfieStatus = await SelfieStatusService().fetchSelfieStatus();
+        if (selfieStatus?.selfieRequired == true) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const UploadSelfieScreen()),
+          );
             // Continue with background tasks after navigation
             _performPostLoginTasks(response.agent.id);
             return;
@@ -135,10 +135,10 @@ class AuthController extends ChangeNotifier {
         }
 
         // Navigate to main screen
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainScreen()),
-        );
-      }
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const MainScreen()),
+          );
+        }
 
       // ✅ Perform background tasks after navigation
       _performPostLoginTasks(response.agent.id);
