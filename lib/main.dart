@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -43,7 +44,9 @@ Future<void> _createForegroundNotificationChannel() async {
     'foreground_service',
     'Foreground Service',
     description: 'Background location service',
-    importance: Importance.low,
+    importance: Importance.low, // Low importance for background service (no sound/vibration)
+    playSound: false,
+    enableVibration: false,
   );
 
   await flutterLocalNotificationsPlugin
@@ -54,12 +57,26 @@ Future<void> _createForegroundNotificationChannel() async {
   log('✅ Foreground notification channel created');
 }
 
+/// ✅ Request runtime notification permission (Android 13+)
+Future<void> _ensureNotificationPermission() async {
+  if (!Platform.isAndroid) return;
+
+  final status = await Permission.notification.status;
+  log('🔔 Notification permission status: $status');
+
+  if (!status.isGranted) {
+    final result = await Permission.notification.request();
+    log('🔔 Notification permission request result: $result');
+  }
+}
+
 void main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
 
     /// ✅ ADDED (VERY IMPORTANT – MUST BE FIRST)
     await _createForegroundNotificationChannel();
+    await _ensureNotificationPermission();
 
     // ---------------- FIREBASE ----------------
     try {

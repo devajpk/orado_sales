@@ -82,7 +82,7 @@ class SocketController extends ChangeNotifier {
           onStart: onBackgroundStart,
           autoStart: true, // Changed to true
           isForegroundMode: true,
-          notificationChannelId: 'location_service',
+          notificationChannelId: 'foreground_service', // Match the channel created in main.dart
           initialNotificationTitle: 'Orado Delivery',
           initialNotificationContent: 'Tracking location in background',
           foregroundServiceNotificationId: 888,
@@ -109,15 +109,15 @@ class SocketController extends ChangeNotifier {
       DartPluginRegistrant.ensureInitialized();
 
       if (service is AndroidServiceInstance) {
+        // 🔴 CRITICAL: Set notification info BEFORE calling setAsForegroundService()
+        // Android requires a valid notification within 5 seconds of starting foreground service
+        service.setForegroundNotificationInfo(
+          title: "Orado Delivery",
+          content: "Tracking your location in background",
+        );
+        
+        // Now it's safe to set as foreground service
         service.setAsForegroundService();
-        // service.setForegroundNotificationInfo(
-        //
-        //   title: "Orado Delivery",
-        //   content: "Tracking your location in background",
-        //
-        //
-        //
-        // );
         log('📱 Foreground service notification set');
       }
 

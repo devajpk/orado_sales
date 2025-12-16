@@ -9,6 +9,7 @@ import 'package:oradosales/services/device_info_service.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:oradosales/presentation/auth/service/login_reg_service.dart';
+import 'package:oradosales/presentation/notification_fcm/service/fcm_service.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -115,23 +116,32 @@ class AuthController extends ChangeNotifier {
       await _saveLoginData(response.token, response.agent.id);
       _message = response.message;
 
-      // ✅ Send device info to backend
-      await DeviceInfoService().sendDeviceInfo(response.agent.id);
-
-      // ✅ Navigate after successful login
+      // ✅ Navigate first to ensure user sees progress
       if (context.mounted) {
-        final selfieStatus = await SelfieStatusService().fetchSelfieStatus();
-
-        if (selfieStatus?.selfieRequired == true) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const UploadSelfieScreen()),
-          );
-        } else if (response.statusCode == 200) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const MainScreen()),
-          );
+        // Check selfie status
+        try {
+          final selfieStatus = await SelfieStatusService().fetchSelfieStatus();
+          if (selfieStatus?.selfieRequired == true) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const UploadSelfieScreen()),
+            );
+            // Continue with background tasks after navigation
+            _performPostLoginTasks(response.agent.id);
+            return;
+          }
+        } catch (e) {
+          log('Error checking selfie status: $e');
+          // Continue with navigation even if selfie check fails
         }
+
+        // Navigate to main screen
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MainScreen()),
+        );
       }
+
+      // ✅ Perform background tasks after navigation
+      _performPostLoginTasks(response.agent.id);
     } catch (e) {
       _message = e.toString().replaceFirst('Exception: ', '');
       _token = null;
@@ -141,6 +151,26 @@ class AuthController extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  // Perform post-login tasks in background (non-blocking)
+  Future<void> _performPostLoginTasks(String agentId) async {
+    // Send device info to backend
+    try {
+      await DeviceInfoService().sendDeviceInfo(agentId);
+      log('Device info sent successfully');
+    } catch (e) {
+      log('Error sending device info: $e');
+    }
+
+    // Resend FCM token to server after login (now that agentId is available)
+    try {
+      await FCMHandler.instance.resendTokenToServer();
+      log('FCM token resent to server after login');
+    } catch (e) {
+      log('Error resending FCM token after login: $e');
+      // Don't fail login if FCM token resend fails
     }
   }
 }

@@ -20,6 +20,11 @@ class SelfieStatusService {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
         },
+      ).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          throw Exception('Selfie status check timed out');
+        },
       );
 
       if (response.statusCode == 200) {

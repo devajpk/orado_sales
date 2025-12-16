@@ -98,6 +98,8 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
   // ---- Slide button + stages ----
   DeliveryStage _stage = DeliveryStage.notStarted;
   double _slideProgress = 0.0; // 0 → 1
+  bool _isSliding = false; // Prevent stage from being overwritten during slide
+  bool _hasRespondedToOrder = false; // Hide buttons immediately after response
 
   // Scroll targets for sections
   final GlobalKey _pickupSectionKey = GlobalKey();
@@ -294,9 +296,20 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
         }
 
         final order = controller.order!;
-        if (order.agentDeliveryStatus != null) {
-  _stage = mapBackendStatus(order.agentDeliveryStatus.toLowerCase());
-}
+        // Only update stage from backend if not currently sliding
+        if (order.agentDeliveryStatus != null && !_isSliding) {
+          _stage = mapBackendStatus(order.agentDeliveryStatus.toLowerCase());
+        }
+        // Reset response flag if order no longer shows accept/reject
+        if (order.showAcceptReject != true && _hasRespondedToOrder) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _hasRespondedToOrder = false;
+              });
+            }
+          });
+        }
         _tryInitializeStaticMap();
 
         return Container(
@@ -540,7 +553,7 @@ class _OrderDetailsBottomSheetState extends State<OrderDetailsBottomSheet> {
 Widget _buildAcceptRejectButtons(dynamic order) {
   final responseController = context.watch<AgentOrderResponseController>();
 
-  final bool shouldShowButtons = order.showAcceptReject == true;
+  final bool shouldShowButtons = order.showAcceptReject == true && !_hasRespondedToOrder;
   final bool isLoading = responseController.isLoading;
 
   if (!shouldShowButtons) {
@@ -618,13 +631,22 @@ Widget _buildAcceptRejectButtons(dynamic order) {
     final agentController = context.read<AgentOrderResponseController>();
     
     // Prevent multiple taps
-    if (agentController.isLoading) return;
+    if (agentController.isLoading || _hasRespondedToOrder) return;
+    
+    // Hide buttons immediately
+    setState(() {
+      _hasRespondedToOrder = true;
+    });
     
     await agentController.respond(widget.orderId, action);
 
     if (!mounted) return;
 
     if (agentController.error != null) {
+      // Show buttons again on error
+      setState(() {
+        _hasRespondedToOrder = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Failed: ${agentController.error}"),
@@ -639,12 +661,28 @@ Widget _buildAcceptRejectButtons(dynamic order) {
         ),
       );
 
-      // Refresh order details
+      // If rejected, navigate back
+      if (action == "reject") {
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+        return;
+      }
+
+      // Refresh order details for accept
       await context
           .read<OrderDetailController>()
           .loadOrderDetails(widget.orderId);
 
-   
+      // Reset flag after a delay to allow order to update
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          setState(() {
+            _hasRespondedToOrder = false;
+          });
+        }
+      });
     }
   }
 
@@ -793,6 +831,9 @@ Widget _buildAcceptRejectButtons(dynamic order) {
 
   /// 🔥 IMPORTANT PART: handle exception + drag back on failure
   void _onSlideCompleted() async {
+  // Prevent multiple slide operations
+  if (_isSliding) return;
+  
   final DeliveryStage previousStage = _stage;
   DeliveryStage newStage;
 
@@ -826,13 +867,19 @@ Widget _buildAcceptRejectButtons(dynamic order) {
       return;
   }
 
-  // Optimistic UI update
+  // Set sliding flag to prevent stage from being overwritten
   setState(() {
+    _isSliding = true;
     _stage = newStage;
     _slideProgress = 0;
   });
 
-  if (!_statusAPIMap.containsKey(newStage)) return;
+  if (!_statusAPIMap.containsKey(newStage)) {
+    setState(() {
+      _isSliding = false;
+    });
+    return;
+  }
 
   final status = _statusAPIMap[newStage]!;
   final controller = context.read<OrderDetailController>();
@@ -844,6 +891,15 @@ Widget _buildAcceptRejectButtons(dynamic order) {
   if (success) {
     // Refresh orders list
     context.read<OrderController>().fetchOrders();
+    
+    // Allow stage to be updated from backend after a short delay
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        setState(() {
+          _isSliding = false;
+        });
+      }
+    });
 
     // ✅ CLOSE BOTTOM SHEET WHEN COMPLETED
     if (newStage == DeliveryStage.completed) {
@@ -856,6 +912,7 @@ Widget _buildAcceptRejectButtons(dynamic order) {
   } else {
     // Rollback UI on failure
     setState(() {
+      _isSliding = false;
       _stage = previousStage;
       _slideProgress = 0;
     });
