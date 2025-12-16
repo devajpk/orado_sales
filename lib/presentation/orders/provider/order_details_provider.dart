@@ -1,4 +1,5 @@
 // lib/presentation/screens/home/orders/controller/order_detail_controller.dart
+
 import 'dart:developer';
 import 'package:oradosales/presentation/orders/service/order_details_sevice.dart';
 import 'package:flutter/material.dart';
@@ -8,130 +9,78 @@ import '../model/order_details_model.dart';
 class OrderDetailController extends ChangeNotifier {
   final OrderDetailsService _service = OrderDetailsService();
 
-  bool isLoading = false;
   OrderDetailsModel? orderDetails;
-  // Order? order;
   String? errorMessage;
   String? successMessage;
+
   Order? get order => orderDetails?.order;
+  bool isSlideLoading = false;
+  void setSlideLoading(bool value) {
+  isSlideLoading = value;
+  notifyListeners();
+}
+
   Future<void> loadOrderDetails(String orderId) async {
-    isLoading = true;
     errorMessage = null;
-    notifyListeners();
 
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('userToken');
 
-      if (token == null) {
-        throw Exception('Authentication token not found');
+      if (token == null) throw Exception('Authentication token not found');
+
+      final fetched = await _service.fetchOrderDetails(
+        orderId: orderId,
+        token: token,
+      );
+
+      if (fetched != null) {
+        orderDetails = fetched;
       }
-
-      final OrderDetailsModel? fetchedDetails = await _service
-          .fetchOrderDetails(orderId: orderId, token: token);
-
-      if (fetchedDetails != null) {
-        orderDetails = fetchedDetails;
-      } else {
+      else {
         throw Exception('Failed to load order details');
       }
+
     } catch (e) {
       errorMessage = e.toString();
       log('Error loading order details: $e');
-    } finally {
-      isLoading = false;
-      notifyListeners();
     }
+
+    notifyListeners(); // only one light rebuild
   }
+
+  // ---------------- UPDATE STATUS (SUPER SMOOTH - NO LOADER) ---------------- //
+
   Future<bool> updateOrderStatus(String status) async {
-  debugPrint("🟦 updateOrderStatus() called with status: $status");
+    if (order == null) return false;
 
-  if (order == null) {
-    debugPrint("❌ Order is NULL. Exiting...");
-    return false;
-  }
+    try {
+          setSlideLoading(true);     
+      final token = await _getUserToken();
 
-  isLoading = true;
-  notifyListeners();
-  debugPrint("🔄 Loading started");
+      final response = await _service.updateDeliveryStatus(
+        orderId: order!.id,
+        status: status,
+        token: token,
+      );
+    setSlideLoading(false);     // 👉 STOP loading
+      if (response != null && response.message != null) {
+        successMessage = response.message!;
+        loadOrderDetails(order!.id); // async refresh
+        return true;
+      }
 
-  try {
-    debugPrint("📌 Fetching user token...");
-    final token = await _getUserToken();
-    debugPrint("✅ Token fetched: $token");
+      return false;
 
-    debugPrint("📤 Sending API request to update status...");
-    debugPrint("➡️ Payload: orderId=${order!.id}, status=$status");
-
-    final response = await _service.updateDeliveryStatus(
-      orderId: order!.id,
-      status: status,
-      token: token,
-    );
-
-    debugPrint("📥 API Response received: $response");
-
-    if (response != null && response.message != null) {
-      debugPrint("✅ Success message: ${response.message}");
-
-      successMessage = response.message!;
-
-      debugPrint("🔄 Reloading order details...");
-      await loadOrderDetails(order!.id);
-      debugPrint("✅ Order details loaded");
-
-      return true;
+    } catch (e) {
+          setSlideLoading(false); 
+      errorMessage = e.toString();
+      log('Status update error: $e');
+      return false;
     }
-
-    debugPrint("⚠️ API returned null or empty message");
-    return false;
-
-  } catch (e, st) {
-    errorMessage = e.toString();
-
-    debugPrint("❌ Exception occurred: $e");
-    debugPrint("📍 Stack Trace: $st");
-
-    log('Status update error: $e');
-    return false;
-
-  } finally {
-    isLoading = false;
-    notifyListeners();
-    debugPrint("🟩 Loading finished & listeners notified");
   }
-}
 
-
-  // Future<bool> updateOrderStatus(String status) async {
-  //   if (order == null) return false;
-
-  //   isLoading = true;
-  //   notifyListeners();
-
-  //   try {
-  //     final token = await _getUserToken(); // Extract token logic
-  //     final response = await _service.updateDeliveryStatus(
-  //       orderId: order!.id,
-  //       status: status,
-  //       token: token,
-  //     );
-
-  //     if (response != null && response.message != null) {
-  //       successMessage = response.message!;
-  //       await loadOrderDetails(order!.id);
-  //       return true;
-  //     }
-  //     return false;
-  //   } catch (e) {
-  //     errorMessage = e.toString();
-  //     log('Status update error: $e');
-  //     return false;
-  //   } finally {
-  //     isLoading = false;
-  //     notifyListeners();
-  //   }
-  // }
+  // ---------------- TOKEN ---------------- //
 
   Future<String> _getUserToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -139,6 +88,8 @@ class OrderDetailController extends ChangeNotifier {
     if (token == null) throw Exception('Authentication token not found');
     return token;
   }
+
+  // ---------------- CLEAR ---------------- //
 
   void clearMessages() {
     errorMessage = null;

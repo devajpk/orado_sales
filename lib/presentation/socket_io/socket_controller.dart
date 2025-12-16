@@ -4,6 +4,7 @@ import 'dart:developer';
 import 'dart:io';
 import 'dart:ui';
 import 'package:battery_plus/battery_plus.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:oradosales/presentation/socket_io/socket_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,6 +15,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../services/navigation_service.dart';
+import '../../services/notification_service.dart';
 import '../../widgets/countdownTimerWidget.dart';
 import '../orders/model/new_order_model.dart';
 import '../orders/model/order_response_model.dart';
@@ -29,6 +31,7 @@ class SocketController extends ChangeNotifier {
   SocketController._internal();
 
   final SocketService _socketService = SocketService();
+  final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
   Timer? _singleLocationTimer;
   bool _isConnected = false;
   bool _isAvailable = false;
@@ -55,6 +58,8 @@ class SocketController extends ChangeNotifier {
     }
   }
 
+
+
   Future<void> _loadAvailabilityStatus() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -77,7 +82,7 @@ class SocketController extends ChangeNotifier {
           onStart: onBackgroundStart,
           autoStart: true, // Changed to true
           isForegroundMode: true,
-          notificationChannelId: 'location_service',
+          notificationChannelId: 'foreground_service', // Match the channel created in main.dart
           initialNotificationTitle: 'Orado Delivery',
           initialNotificationContent: 'Tracking location in background',
           foregroundServiceNotificationId: 888,
@@ -104,15 +109,15 @@ class SocketController extends ChangeNotifier {
       DartPluginRegistrant.ensureInitialized();
 
       if (service is AndroidServiceInstance) {
+        // 🔴 CRITICAL: Set notification info BEFORE calling setAsForegroundService()
+        // Android requires a valid notification within 5 seconds of starting foreground service
+        service.setForegroundNotificationInfo(
+          title: "Orado Delivery",
+          content: "Tracking your location in background",
+        );
+        
+        // Now it's safe to set as foreground service
         service.setAsForegroundService();
-        // service.setForegroundNotificationInfo(
-        //
-        //   title: "Orado Delivery",
-        //   content: "Tracking your location in background",
-        //
-        //
-        //
-        // );
         log('📱 Foreground service notification set');
       }
 
@@ -164,7 +169,7 @@ class SocketController extends ChangeNotifier {
               final deviceInfo = await _getDeviceInfo();
 
               // Prepare API request
-              final apiUrl = 'https://orado-backend.onrender.com/agent/$agentId/update-location';
+              final apiUrl = 'https://orado.online/backend/agent/$agentId/update-location';
 
 
               final requestBody = {
@@ -332,24 +337,42 @@ class SocketController extends ChangeNotifier {
         onConnect: () {
           _isConnected = true;
           notifyListeners();
-          log('Socket connected successfully');
+          log('✅✅✅ Socket connected successfullyug');
+          log('✅ onNewOrder handler is NOW LISTENING');
+          log('✅ _isAvailable = $_isAvailable');
           if (_isAvailable) {
             _startSingleLocationTimer();
           }
         },
         onNewOrder: (data) {
-          log('new order assigned: $data');
-  
-          final orderDetails = OrderPayload.fromJson(data);
-          log("===========${orderDetails}");
-          _showOrderBottomSheet(orderDetails);
+          log('🆕🆕🆕 NEW ORDER RECEIVED 🆕🆕🆕');
+          log('📩 Socket event data: $data');
+          log('🔌 Socket connected: $_isConnected');
+          log('📍 Is available: $_isAvailable');
+          
+          try {
+            final orderDetails = OrderPayload.fromJson(data);
+            log("✅ Order parsed: ${orderDetails.orderDetails.id}");
+            log("💰 Earning: ₹${orderDetails.orderDetails.estimatedEarning}");
+            
+            // ✅ SHOW NOTIFICATION
+            _showOrderNotification(orderDetails);
+            
+            // Show bottom sheet UI
+            _showOrderBottomSheet(orderDetails);
+          } catch (e, st) {
+            log('❌ ERROR parsing order: $e');
+            log('📛 Stack: $st');
+          }
         },
         onDisconnect: () {
           _isConnected = false;
           _stopLocationTimer();
           notifyListeners();
-          log('Socket disconnected');
+          log('❌ Socket disconnected');
+          log('⏹ Stopping location timer');
           if (!_isConnected) {
+            log('🔄 Attempting to reconnect in 5 seconds...');
             Timer(Duration(seconds: 5), () => connectSocket(isAppResume: true));
           }
         },
@@ -357,7 +380,7 @@ class SocketController extends ChangeNotifier {
           _isConnected = false;
           _stopLocationTimer();
           notifyListeners();
-          log('Socket error: $error');
+          log('❌ Socket error: $error');
         },
         onOrderAssigned: (data) async {
           log('Order assigned: $data');
@@ -573,6 +596,30 @@ class SocketController extends ChangeNotifier {
     }
   }
   final AudioPlayer player = AudioPlayer();
+
+  // ✅ SHOW ORDER NOTIFICATION
+  Future<void> _showOrderNotification(OrderPayload order) async {
+    try {
+      log('🔔 [SOCKET] Attempting to show order notification...');
+      log('🔔 Order ID: ${order.orderDetails.id}');
+      log('🔔 Earning: ₹${order.orderDetails.estimatedEarning}');
+      
+      await NotificationService.showNotification(
+        title: '🆕 New Order Assigned',
+        body: 'Tap to view order details - ₹${order.orderDetails.estimatedEarning}',
+        payload: jsonEncode({
+          'orderId': order.orderDetails.id,
+          'type': 'order_assignment',
+        }),
+      );
+      
+      log('✅ [SOCKET] Order notification shown successfully');
+    } catch (e, stackTrace) {
+      log('❌ [SOCKET] Notification error: $e');
+      log('📛 Stack: $stackTrace');
+    }
+  }
+
   Future<void> _showOrderBottomSheet(OrderPayload order) async {
     if (NavigationService.navigatorKey.currentContext == null) return;
 
@@ -829,7 +876,7 @@ class SocketController extends ChangeNotifier {
                                     MaterialPageRoute(
                                       builder:
                                           (context) =>
-                                          OrderDetailsScreen(orderId: order.orderDetails.id, ),
+                                          OrderDetailsBottomSheet(orderId: order.orderDetails.id ),
                                     ),
                                   );                                  // Navigator.pop(context);
                                   // Navigate to order details page if needed
@@ -864,35 +911,69 @@ class SocketController extends ChangeNotifier {
 
 
   Future<void> updateAgentAvailability(bool isAvailable) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final agentId = prefs.getString('agentId');
+  log('');
+  log('═══════════════════════════════════════════════════════');
+  log('updateAgentAvailability CALLED');
+  log('═══════════════════════════════════════════════════════');
+  log('Incoming isAvailable: $isAvailable');
+  log('Current _isConnected: $_isConnected');
+  log('Current _isAvailable: $_isAvailable');
+  log('═══════════════════════════════════════════════════════');
+  log('');
 
-      if (agentId == null) {
-        log('Agent ID not found');
-        return;
-      }
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final agentId = prefs.getString('agentId');
 
-      _isAvailable = isAvailable;
-      await prefs.setBool('agent_available', isAvailable);
-
-      if (isAvailable) {
-        _startSingleLocationTimer();
-        if (_isInBackground) {
-          _startBackgroundService();
-        }
-      } else {
-        _stopLocationTimer();
-        await _stopBackgroundService();
-      }
-
-      notifyListeners();
-      log('Availability updated: ${isAvailable ? "AVAILABLE" : "UNAVAILABLE"}');
-
-    } catch (e) {
-      log('Availability update error: $e');
+    if (agentId == null) {
+      log('❌ Agent ID not found → ABORTING');
+      return;
     }
+
+    // CHECK SOCKET FIRST
+    log('🔵 Checking socket connection before marking available...');
+    if (!_isConnected) {
+      log('⚠️ Socket NOT connected! Will connect now...');
+      await connectSocket();
+      await Future.delayed(Duration(milliseconds: 1000));
+      log('✅ Connection attempt completed. Connected = $_isConnected');
+    } else {
+      log('✅ Socket already connected');
+    }
+
+    _isAvailable = isAvailable;
+    await prefs.setBool('agent_available', isAvailable);
+    log('💾 Saved to prefs: agent_available = $isAvailable');
+
+    if (isAvailable) {
+      log('');
+      log('🟢 ═══════════════════════════════════════════════════════');
+      log('🟢 AGENT MARKED AVAILABLE');
+      log('🟢 ═══════════════════════════════════════════════════════');
+      log('🟢 READY TO RECEIVE ORDERS');
+      log('🟢 Socket connected: $_isConnected');
+      log('🟢 Agent available: $_isAvailable');
+      log('🟢 ═══════════════════════════════════════════════════════');
+      log('');
+
+      _startSingleLocationTimer();
+
+      if (_isInBackground) {
+        await _startBackgroundService();
+      }
+    } else {
+      log('🔴 Agent marked UNAVAILABLE');
+      _stopLocationTimer();
+      await _stopBackgroundService();
+    }
+
+    notifyListeners();
+  } catch (e, stack) {
+    log('❌ ERROR in updateAgentAvailability: $e');
+    log('Stack: $stack');
   }
+}
+
 
 
   void disconnectSocket() {

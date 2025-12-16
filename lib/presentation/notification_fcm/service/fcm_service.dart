@@ -9,10 +9,23 @@ import 'package:flutter/material.dart';
 import 'package:oradosales/presentation/notification_fcm/controller/fcm_controller.dart';
 
 class FCMHandler {
+  static FCMHandler? _instance;
   final FCMTokenController _tokenController = FCMTokenController();
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   late FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin;
   final FlutterTts flutterTts = FlutterTts();
+
+  // Private constructor
+  FCMHandler._();
+
+  // Factory constructor to return singleton instance
+  factory FCMHandler() {
+    _instance ??= FCMHandler._();
+    return _instance!;
+  }
+
+  // Get instance method
+  static FCMHandler get instance => _instance ??= FCMHandler._();
 
   // Initialize FCM, local notifications, and TTS
   Future<void> initialize() async {
@@ -20,6 +33,13 @@ class FCMHandler {
     await _initTTS();
     _setupLocalNotifications();
     await _setupFCM();
+  }
+
+  Future<void> sendTokenAfterLogin() async {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp();
+    }
+    await _sendTokenToServer();
   }
 
   Future<void> _initTTS() async {
@@ -60,12 +80,7 @@ class FCMHandler {
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       log('Foreground message: ${message.data}');
-      if (message.notification != null) {
-        _showNotification(message);
-        final String spokenText =
-            message.notification?.title ?? "New notification received";
-        await _speak(spokenText);
-      }
+      await _showNotificationFromMessage(message);
     });
 
     FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundMessageHandler);
@@ -108,23 +123,59 @@ class FCMHandler {
     }
   }
 
-  Future<void> _showNotification(RemoteMessage message) async {
+  // Public method to resend token after login (when agentId becomes available)
+  Future<void> resendTokenToServer() async {
+    log('Resending FCM token to server after login...');
+    try {
+      // Ensure Firebase is initialized
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp();
+      }
+      await _sendTokenToServer();
+    } catch (e) {
+      log('Error in resendTokenToServer: $e');
+      // Don't throw - let login continue even if FCM fails
+    }
+  }
+
+  // Normalize and show notification for both data-only and notification messages
+  Future<void> _showNotificationFromMessage(RemoteMessage message) async {
+    try {
+      final title = message.notification?.title ??
+          message.data['title'] ??
+          'New Order Assignment';
+      final body = message.notification?.body ??
+          message.data['body'] ??
+          'You have a new order';
+
+      // Build payload with orderId if present
+      final payload = message.data.isNotEmpty
+          ? message.data.toString()
+          : '{"type":"order_assignment"}';
+
     const androidDetails = AndroidNotificationDetails(
-      'default_channel',
-      'Default',
+        'order_channel',
+        'Order Notifications',
       importance: Importance.max,
       priority: Priority.high,
+        playSound: true,
     );
 
     const notificationDetails = NotificationDetails(android: androidDetails);
 
     await _flutterLocalNotificationsPlugin.show(
       0,
-      message.notification?.title ?? "Title",
-      message.notification?.body ?? "Body",
+        title,
+        body,
       notificationDetails,
-      payload: message.data.toString(),
-    );
+        payload: payload,
+      );
+
+      final String spokenText = title;
+      await _speak(spokenText);
+    } catch (e) {
+      log("Notification display error: $e");
+    }
   }
 
   Future<void> _speak(String text) async {
@@ -144,3 +195,4 @@ class FCMHandler {
     log("Handling a background message: ${message.messageId}");
   }
 }
+

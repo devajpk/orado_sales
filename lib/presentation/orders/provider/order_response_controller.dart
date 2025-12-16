@@ -10,7 +10,13 @@ class AgentOrderResponseController extends ChangeNotifier {
   String? error;
   OrderResponseModel? response;
 
+  int? loadingIndex; // 0 = Accept, 1 = Reject
+
   Future<void> respond(String orderId, String action) async {
+    // Prevent multiple taps
+    if (isLoading) return;
+
+    loadingIndex = action == "accept" ? 0 : 1;
     isLoading = true;
     error = null;
     notifyListeners();
@@ -20,11 +26,19 @@ class AgentOrderResponseController extends ChangeNotifier {
         orderId: orderId,
         action: action,
       );
-    } catch (e) {
-      error = e.toString();
-    } finally {
+      
+      // Success - response is set
       isLoading = false;
+      loadingIndex = null;
+      notifyListeners();
+      
+    } catch (e) {
+      // Error handling
+      error = e.toString();
+      isLoading = false;
+      loadingIndex = null;
       notifyListeners();
     }
   }
 }
+

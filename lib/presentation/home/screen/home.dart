@@ -5,6 +5,8 @@ import 'package:oradosales/presentation/home/screen/cod_submit_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:oradosales/presentation/notification_fcm/service/fcm_service.dart';
+import 'package:oradosales/services/notification_service.dart';
 import 'package:provider/provider.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:oradosales/constants/styles.dart';
@@ -25,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+  
     checkBatteryOptimization();
     // player.setAsset("assets/sounds/new_order.mp3");
 

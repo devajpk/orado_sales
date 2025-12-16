@@ -24,17 +24,20 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
+    // Wait for the frame to be built before checking auth
+    WidgetsBinding.instance.addPostFrameCallback((_) {
     _checkAuthStatus();
+    });
     
     // Set a timeout to ensure we don't get stuck on splash screen
-    // _timeoutTimer = Timer(const Duration(seconds: 3), () {
-    //   if (mounted) {
-    //     log("Splash screen timeout reached, forcing navigation to login");
-    //     Navigator.of(context).pushReplacement(
-    //       MaterialPageRoute(builder: (_) => const LoginScreen())
-    //     );
-    //   }
-    // });
+    _timeoutTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) {
+        log("⚠️ Splash screen timeout reached, forcing navigation to login");
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const LoginScreen())
+        );
+      }
+    });
   }
   
   @override
@@ -45,48 +48,75 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _checkAuthStatus() async {
     try {
-      log("Starting auth status check");
+      log("🔍 Starting auth status check");
+      
+      // Cancel timeout timer since we're proceeding
+      _timeoutTimer?.cancel();
+      
       final prefs = await SharedPreferences.getInstance();
       final fcmToken = prefs.getString('fcmToken') ?? '';
-      log("FCM token: ${fcmToken.isEmpty ? 'not found' : 'exists'}");
+      log("📱 FCM token: ${fcmToken.isEmpty ? 'not found' : 'exists'}");
 
       final authController = context.read<AuthController>();
-      await Future.delayed(Duration.zero);
-
-      log("Auth token: ${authController.token != null ? 'exists' : 'null'}");
       
-      if (authController.token != null) {
-        try {
-          final selfieStatus = await SelfieStatusService().fetchSelfieStatus();
-          log("Selfie status: ${selfieStatus?.selfieRequired}");
+      // Wait a bit for AuthController to finish loading stored data
+      await Future.delayed(const Duration(milliseconds: 100));
 
-          if (mounted) {
+      log("🔑 Auth token: ${authController.token != null ? 'exists' : 'null'}");
+      
+      if (authController.token != null && authController.token!.isNotEmpty) {
+        try {
+          // Add timeout to selfie status check to prevent hanging
+          final selfieStatus = await SelfieStatusService()
+              .fetchSelfieStatus()
+              .timeout(
+                const Duration(seconds: 3),
+                onTimeout: () {
+                  log("⏱️ Selfie status check timed out, defaulting to main screen");
+                  return null;
+                },
+              );
+          
+          log("📸 Selfie status: ${selfieStatus?.selfieRequired}");
+
+          if (!mounted) return;
+
             if (selfieStatus?.selfieRequired == true) {
-              log("Navigating to selfie screen");
-              Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const UploadSelfieScreen()));
+            log("➡️ Navigating to selfie screen");
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const UploadSelfieScreen())
+            );
             } else {
-              log("Navigating to main screen");
-              Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const MainScreen()));
-            }
+            log("➡️ Navigating to main screen");
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const MainScreen())
+            );
           }
         } catch (e) {
-          log("Error checking selfie status: $e");
+          log("❌ Error checking selfie status: $e");
           // If selfie check fails, default to main screen
           if (mounted) {
-            Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const MainScreen()));
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const MainScreen())
+            );
           }
         }
       } else {
-        log("No auth token, navigating to login");
+        log("➡️ No auth token, navigating to login");
         if (mounted) {
-          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const LoginScreen())
+          );
         }
       }
-    } catch (e) {
-      log("Error in auth check: $e");
+    } catch (e, stackTrace) {
+      log("❌ Error in auth check: $e");
+      log("Stack trace: $stackTrace");
       // Fallback to login screen if anything fails
       if (mounted) {
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const LoginScreen())
+        );
       }
     }
   }
