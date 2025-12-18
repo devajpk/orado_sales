@@ -118,22 +118,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
   // ---------------- STATUS LOGIC ----------------
 
-  String _getAgentStatus(dynamic order) {
-    // Orders list passes `AssignedOrder` which has `status`
-    // Order details passes `Order` which has `agentDeliveryStatus`
-    try {
-      final v = order.agentDeliveryStatus;
-      if (v is String) return v;
-    } catch (_) {}
-    try {
-      final v = order.status;
-      if (v is String) return v;
-    } catch (_) {}
-    return '';
-  }
-
   bool _isPickupCompleted(dynamic order) {
-    final s = _getAgentStatus(order).toLowerCase();
+    final s = (order.agentDeliveryStatus ?? '').toString().toLowerCase();
     return s == "picked_up" ||
         s == "out_for_delivery" ||
         s == "reached_customer" ||
@@ -141,7 +127,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   }
 
   String _pickupStatus(dynamic order) {
-    final s = _getAgentStatus(order).toLowerCase();
+    final s = (order.agentDeliveryStatus ?? '').toString().toLowerCase();
 
     // Pickup is completed only once rider has picked up.
     if (s == "picked_up" ||
@@ -159,7 +145,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   }
 
   String _deliveryStatus(dynamic order) {
-    final s = _getAgentStatus(order).toLowerCase();
+    final s = (order.agentDeliveryStatus ?? '').toString().toLowerCase();
 
     if (s == "delivered") return "Completed";
 
