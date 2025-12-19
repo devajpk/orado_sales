@@ -46,103 +46,110 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
 
         final order = controller.order!;
 
-        return Scaffold(
-          backgroundColor: Colors.black,
-
-          /// ---------------- APP BAR ----------------
-          appBar: AppBar(
+        return PopScope(
+  canPop: false, // 🚫 prevent app from closing
+  onPopInvoked: (didPop) {
+    // Navigate to home instead of closing app
+    AppUIState.screen.value = VisibleScreen.home;
+  },
+          child: Scaffold(
             backgroundColor: Colors.black,
-            elevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () {
-                AppUIState.screen.value = VisibleScreen.home;
-              },
-            ),
-            title: const Text(
-              "1 new Task",
-              style: TextStyle(color: Colors.white),
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
+          
+            /// ---------------- APP BAR ----------------
+            appBar: AppBar(
+              backgroundColor: Colors.black,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
                 onPressed: () {
                   AppUIState.screen.value = VisibleScreen.home;
                 },
               ),
-              const SizedBox(width: 12),
-            ],
-          ),
-
-          /// ---------------- BODY ----------------
-          body: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 12),
-
-                const Text(
-                  "Just Now",
-                  style: TextStyle(color: Colors.white70),
+              title: const Text(
+                "1 new Task",
+                style: TextStyle(color: Colors.white),
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () {
+                    AppUIState.screen.value = VisibleScreen.home;
+                  },
                 ),
-
-                const SizedBox(height: 20),
-
-                /// ================= PICKUP =================
-                _pickupTile(
-                  time: _formatTime(order.createdAt),
-                  orderId: order.id,
-                  shopName: order.restaurant.name,
-                  distance: "0.48 KM Away",
-                ),
-
-                const Divider(color: Colors.white30, height: 32),
-
-                /// ================= DELIVERY =================
-                _deliveryTile(
-                  time: _formatTime(
-                    order.createdAt.add(const Duration(minutes: 20)),
-                  ),
-                  orderId: order.id,
-                  address:
-                      "${order.deliveryAddress.city}, ${order.deliveryAddress.state}, India",
-                ),
-
-                const Spacer(),
-
-                /// ================= ACKNOWLEDGE =================
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-                    onPressed: () {
-                      Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => OrderDetailsScreen(order: order),
-      ),
-    );
-                    },
-                    child: const Text(
-                      "Acknowledge",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 20),
+                const SizedBox(width: 12),
               ],
+            ),
+          
+            /// ---------------- BODY ----------------
+            body: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 12),
+          
+                  const Text(
+                    "Just Now",
+                    style: TextStyle(color: Colors.white70),
+                  ),
+          
+                  const SizedBox(height: 20),
+          
+                  /// ================= PICKUP =================
+                  _pickupTile(
+                    time: _formatTime(order.createdAt),
+                    orderId: order.id,
+                    shopName: order.restaurant.name,
+                    distance: "0.48 KM Away",
+                  ),
+          
+                  const Divider(color: Colors.white30, height: 32),
+          
+                  /// ================= DELIVERY =================
+                  _deliveryTile(
+                    time: _formatTime(
+                      order.createdAt.add(const Duration(minutes: 20)),
+                    ),
+                    orderId: order.id,
+                    address:
+                        "${order.deliveryAddress.city}, ${order.deliveryAddress.state}, India",
+                  ),
+          
+                  const Spacer(),
+          
+                  /// ================= ACKNOWLEDGE =================
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                context,
+                MaterialPageRoute(
+          builder: (_) => OrderDetailsScreen(order: order),
+                ),
+              );
+                      },
+                      child: const Text(
+                        "Acknowledge",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+          
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
           ),
         );
