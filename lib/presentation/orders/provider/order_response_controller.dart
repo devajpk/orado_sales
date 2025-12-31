@@ -40,5 +40,12 @@ class AgentOrderResponseController extends ChangeNotifier {
       notifyListeners();
     }
   }
+    void reset() {
+    isLoading = false;
+    error = null;
+    response = null;
+    loadingIndex = null;
+    notifyListeners();
+  }
 }
 

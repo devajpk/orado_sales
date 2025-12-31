@@ -201,12 +201,12 @@ class NotificationService {
         return;
       }
 
-      navigatorState.push(
-        MaterialPageRoute(
-          builder: (_) =>
-              OrderDetailsBottomSheet(orderId: orderId),
-        ),
-      );
+      // navigatorState.push(
+      //   MaterialPageRoute(
+      //     builder: (_) =>
+      //         OrderDetailsBottomSheet(orderId: orderId),
+      //   ),
+      // );
 
       log("✅ Navigated to order: $orderId");
     });

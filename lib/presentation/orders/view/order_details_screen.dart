@@ -2,6 +2,7 @@
 
   import 'package:flutter/material.dart';
   import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:oradosales/core/app/app_ui_state.dart';
   import 'package:oradosales/presentation/orders/provider/order_details_provider.dart';
   import 'package:oradosales/presentation/orders/provider/order_provider.dart';
   import 'package:oradosales/presentation/orders/provider/order_response_controller.dart';
@@ -68,12 +69,12 @@
 
   class OrderDetailsBottomSheet extends StatefulWidget {
     final String orderId;
-    final bool pickup=false;
+    final bool pickup;
 
     const OrderDetailsBottomSheet({
       Key? key,
       required this.orderId,
-      
+      required this.pickup
     }) : super(key: key);
 
     @override
@@ -111,6 +112,44 @@
     final GlobalKey _pickupSectionKey = GlobalKey();
     final GlobalKey _arrivalSectionKey = GlobalKey();
     final GlobalKey _deliverySectionKey = GlobalKey();
+    String? _syncedOrderId;
+
+@override
+void didUpdateWidget(covariant OrderDetailsBottomSheet oldWidget) {
+  super.didUpdateWidget(oldWidget);
+
+  if (oldWidget.orderId != widget.orderId ||
+      oldWidget.pickup != widget.pickup) {
+
+    context.read<OrderDetailController>()
+        .loadOrderDetails(widget.orderId);
+  }
+}
+void _syncStateFromOrder(dynamic order) {
+  // 🔒 Run ONLY when order changes
+  if (_syncedOrderId == order.id) return;
+
+  _syncedOrderId = order.id;
+
+  // 1️⃣ Sync stage from backend
+  _stage = mapBackendStatus(
+    (order.agentDeliveryStatus ?? '').toString().toLowerCase(),
+  );
+
+  // 2️⃣ Sticky pickup flag
+  _pickupCompleted = _isPickupStageOrBeyond(_stage);
+
+  // 3️⃣ Decide which section is active
+  _activeSection =
+      _pickupCompleted ? ActiveSection.delivery : ActiveSection.pickup;
+
+  // 4️⃣ Reset UI-only state
+  _slideProgress = 0.0;
+  _isSliding = false;
+  _hasRespondedToOrder = false;
+}
+
+
 
     int _stageRank(DeliveryStage s) {
       switch (s) {
@@ -155,11 +194,10 @@
     void initState() {
       super.initState();
       WidgetsBinding.instance.addPostFrameCallback((_) {
-          print("🔥 BottomSheet INIT");
-      print("🔥 OrderId = ${widget.orderId}");
-      print("🔥 Provider available = true");
-
+     
+// 🔥 VERY IMPORTANT
       context.read<OrderDetailController>().loadOrderDetails(widget.orderId);
+        context.read<AgentOrderResponseController>().reset();
         _startAgentLocationUpdates();
       });
     }
@@ -340,6 +378,8 @@
               }
 
           final order = controller.order!;
+          _syncStateFromOrder(order);
+
           // Only update stage from backend if not currently sliding
           if (!_isSliding) {
             final backendStage = mapBackendStatus(
@@ -358,7 +398,7 @@
 
             // If pickup is completed, automatically switch UI to Delivery section
             // so the delivery slider becomes visible (and pickup bar doesn't show there).
-            if (_pickupCompleted && _activeSection == ActiveSection.pickup) {
+            if (!widget.pickup&&_pickupCompleted && _activeSection == ActiveSection.pickup) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (!mounted) return;
                 setState(() {
@@ -510,7 +550,55 @@
                       //   ),
                       // ),
                       // Arrival section (HIDDEN WHEN COMPLETED)
+
+if (widget.pickup) ...[
+  const SizedBox(height: 12),
+
+  Text(
+    order.restaurant.name,
+    style: const TextStyle(
+      color: Colors.white,
+      fontSize: 16,
+      fontWeight: FontWeight.bold,
+    ),
+  ),
+
+  const SizedBox(height: 6),
+
+  Text(
+    "${order.restaurant.address.city}, ${order.restaurant.address.state}",
+    style: const TextStyle(color: Colors.white70),
+  ),
+
+  const SizedBox(height: 12),
+
+  Row(
+    children: [
+      _circleBtn(Icons.phone, Colors.green, () {
+        _makePhoneCall(order.restaurant.phone);
+      }),
+      const SizedBox(width: 12),
+      _circleBtn(Icons.navigation, Colors.blue, () {
+        _openNavigation(
+          order.restaurant.location.latitude,
+          order.restaurant.location.longitude,
+        );
+      }),
+    ],
+  ),
+
+  const SizedBox(height: 20),
+]
+else
+ 
+                      
+ Column(children: [
+
+
+
   if (!_isOrderCompleted(order)) ...[
+
+
     Container(
       key: _arrivalSectionKey,
       child: Row(
@@ -595,6 +683,7 @@
 
                       const SizedBox(height: 20),
   ],
+ ],) ,
 
 
                     
@@ -629,12 +718,8 @@
 
                       const SizedBox(height: 15),
 
-                      _lockedTile("DISCOUNT", "₹ 0.00"),
-
-                      const SizedBox(height: 15),
-
                       _lockedTile(
-                        "SUBTOTAL",
+                        "TOTAL",
                         "₹ ${order.collectAmount.toStringAsFixed(2)}",
                       ),
 
@@ -746,7 +831,8 @@
   Widget _buildAcceptRejectButtons(dynamic order) {
     final responseController = context.watch<AgentOrderResponseController>();
 
-    final bool shouldShowButtons = order.showAcceptReject == true && !_hasRespondedToOrder;
+    final bool shouldShowButtons = order.showAcceptReject == true;
+
     final bool isLoading = responseController.isLoading;
 
     if (!shouldShowButtons) {
@@ -858,7 +944,13 @@
         if (action == "reject") {
           await Future.delayed(const Duration(milliseconds: 300));
           if (mounted) {
-            Navigator.of(context).pop();
+             // 1️⃣ CLOSE BOTTOM SHEET
+  Navigator.of(context).pop();
+
+  // 2️⃣ SWITCH SCREEN AFTER CLOSE
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    AppUIState.screen.value = VisibleScreen.home; // or orderDetails
+  });
           }
           return;
         }
@@ -1252,7 +1344,7 @@
     // ---------------- PICKUP/DELIVERY TIMELINE STATUS ---------------- //
     bool _isPickupCompletedBySlider() {
       // Use sticky bool so UI doesn't flicker if backend sends older state briefly.
-      return _pickupCompleted || _isPickupStageOrBeyond(_stage);
+        return _isPickupStageOrBeyond(_stage);
     }
 
     String _pickupTimelineStatus(dynamic order) {
@@ -1357,16 +1449,20 @@
 
   // Extension
   extension OrderDetailsBottomSheetExtension on BuildContext {
-    Future<void> showOrderBottomSheet(
-        String orderId, VoidCallback onStart) async {
-      return showModalBottomSheet(
-        context: this,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => OrderDetailsBottomSheet(
-          
-          orderId: orderId,
-        ),
-      );
-    }
+  Future<void> showOrderBottomSheet({
+    required String orderId,
+    required bool pickup, // 👈 REQUIRED FLAG
+  }) async {
+    return showModalBottomSheet(
+      context: this,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => OrderDetailsBottomSheet(
+          key: ValueKey('$orderId-$pickup'), // 🔥 ADD THIS LINE
+        orderId: orderId,
+        pickup: pickup, // 👈 PASS IT
+      ),
+    );
   }
+}
+

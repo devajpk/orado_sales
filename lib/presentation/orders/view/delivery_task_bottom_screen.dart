@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:oradosales/presentation/orders/provider/order_response_controller.dart';
 import 'package:oradosales/presentation/orders/view/order_details_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:oradosales/presentation/orders/provider/order_details_provider.dart';
@@ -25,6 +26,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         final orderId = (widget.order.id ?? '').toString();
         if (orderId.isNotEmpty) {
           await context.read<OrderDetailController>().loadOrderDetails(orderId);
+           context.read<AgentOrderResponseController>().reset();
         }
       } catch (_) {
         // If widget.order doesn't have expected shape, ignore and fallback to passed order.
@@ -80,6 +82,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
                 /// PICKUP
         _timelineTile(
+          pickup: true,
                   context: context,
           time: _formatTime(currentOrder.createdAt),
                   title: "Pickup",
@@ -92,6 +95,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
                 /// DELIVERY
                 _timelineTile(
+                  pickup: false,
                   context: context,
                   time: _formatTime(
                     (currentOrder.createdAt as DateTime?)?.add(const Duration(minutes: 20)),
@@ -182,11 +186,12 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     required String address,
     required bool isLast,
     bool enabled = true,
+    required bool pickup
   }) {
     return InkWell(
       onTap: enabled
           ? () {
-              context.showOrderBottomSheet(orderId, () {});
+              context.showOrderBottomSheet(orderId:  orderId, pickup:pickup, );
             }
           : () {
               ScaffoldMessenger.of(context).showSnackBar(

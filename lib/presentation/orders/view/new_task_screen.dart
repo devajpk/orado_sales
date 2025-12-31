@@ -1,5 +1,6 @@
 import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'package:oradosales/presentation/orders/provider/order_response_controller.dart';
 import 'package:oradosales/presentation/orders/view/delivery_task_bottom_screen.dart';
 import 'package:oradosales/presentation/orders/view/order_details_screen.dart';
 import 'package:provider/provider.dart';
@@ -28,6 +29,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
       }
 
       context.read<OrderDetailController>().loadOrderDetails(orderId);
+             context.read<AgentOrderResponseController>().reset();
     });
   }
 

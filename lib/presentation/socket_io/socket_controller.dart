@@ -924,14 +924,14 @@ class SocketController extends ChangeNotifier {
                                 onPressed: () async {
 
 
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder:
-                                          (context) =>
-                                          OrderDetailsBottomSheet(orderId: order.orderDetails.id ),
-                                    ),
-                                  );                                  // Navigator.pop(context);
+                                  // Navigator.push(
+                                  //   context,
+                                  //   MaterialPageRoute(
+                                  //     builder:
+                                  //         (context) =>
+                                  //         OrderDetailsBottomSheet(orderId: order.orderDetails.id ),
+                                  //   ),
+                                  // );                                  // Navigator.pop(context);
                                   // Navigate to order details page if needed
                                 },
                                 style: ElevatedButton.styleFrom(

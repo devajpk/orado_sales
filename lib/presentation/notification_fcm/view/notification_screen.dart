@@ -123,15 +123,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
                             listen: false,
                           ).markNotificationAsRead(notification.id!);
 
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (_) => OrderDetailsBottomSheet(orderId: orderId,
+                          // Navigator.push(
+                          //   context,
+                          //   MaterialPageRoute(
+                          //     builder:
+                          //         (_) => OrderDetailsBottomSheet(orderId: orderId,
 
-                                  ),
-                            ),
-                          );
+                          //         ),
+                          //   ),
+                          // );
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
